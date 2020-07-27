@@ -36,6 +36,8 @@ function draw() {
 }
 
 function keyPressed() {
+    // Disabled if focused on settings
+    if (document.activeElement.classList.contains('settings-number')) return;
     if (keyCode === LEFT_ARROW) {
         board.move(board.curtetromino, 0, -1);
     } else if (keyCode === RIGHT_ARROW) {
@@ -53,15 +55,6 @@ function keyPressed() {
     }
 }
 
-function toggleAI() {
-    CONFIG.aienabled ^= 1;
-    console.log('AI toggled; now ' + ai.enabled);
-}
-
-function toggleShowHint() {
-    CONFIG.showhint ^= 1
-    console.log('Show hint toggled; now ' + CONFIG.showhint);
-}
 
 function resetBoard() {
     board = new Board(0.5 * (width - CONFIG.board_w), 0.5 * (height - CONFIG.board_h),

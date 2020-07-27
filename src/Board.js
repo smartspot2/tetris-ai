@@ -25,7 +25,7 @@ class Board {
         this.nexttetromino = this.curbag.pop();
         this.heldtetromino = null;
 
-        this.framesUntilDrop = CONFIG.framedelay;
+        this.framesUntilDrop = CONFIG.dropframes;
         this.lineclears = 0;
         this.gameover = false;
     }
@@ -61,7 +61,7 @@ class Board {
             this.getGhost(this.curtetromino).draw('33');
 
             if (!this.framesUntilDrop--) {
-                this.framesUntilDrop = CONFIG.framedelay;
+                this.framesUntilDrop = CONFIG.dropframes;
 
                 if (this.isValid(this.curtetromino, 1, 0)) {
                     this.curtetromino.moveDown();
@@ -148,7 +148,7 @@ class Board {
                 this.refillBag();
             }
         }
-        this.framesUntilDrop = Math.floor(CONFIG.framedelay * 0.25);
+        this.framesUntilDrop = Math.floor(CONFIG.dropframes * 0.25);
     }
 
     isValid(tetromino, dr, dc) {
@@ -176,7 +176,7 @@ class Board {
         if (!this.curbag.length) {
             this.refillBag();
         }
-        this.framesUntilDrop = Math.floor(CONFIG.framedelay * 0.25);
+        this.framesUntilDrop = Math.floor(CONFIG.dropframes * 0.25);
 
         // Check validity of new tetromino/check for gameover
         if (this.getGhost(this.curtetromino).r === this.curtetromino.r) {

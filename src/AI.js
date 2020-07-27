@@ -18,13 +18,13 @@ class AI {
         if (!this.toexecute) {
             this.toexecute = this.selectdest();
         }
-        if (this.framesuntilnext--) {
+        if (this.framesuntilnext-- > 0) {
             return;
         }
         this.framesuntilnext = CONFIG.aidelay;
 
         // only execute subsections <= current row position (+1 to account for above the board)
-        let curstepnumber = this.board.curtetromino.r + 1;
+        let curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curtetromino.r + 1;
         let nextstep = Object.keys(this.toexecute.steps).find(k => this.toexecute.steps[k].length > 0 && Number(k) <= curstepnumber);
         if (!nextstep) return;
         let cmd = this.toexecute.steps[nextstep].shift();
@@ -198,13 +198,4 @@ class AI {
         score -= sumheightdiffs * 75 / (CONFIG.cols - 1);
         return score;
     }
-}
-
-/**
- *
- * @type {{r: number, steps: [string, string]}}
- */
-const OBJ = {
-    steps: ['a', 'b'],
-    r: 2
 }

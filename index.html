@@ -28,18 +28,43 @@
     <h5>Settings</h5>
     <div id="enable-ai" class="settings-row">
       <div class="settings-col-left">
-        <label class="control-label" for="enable-ai-switch">Enable AI</label>
+        <label class="control-label" for="enable-ai-input">Enable AI</label>
       </div>
       <div class="settings-col-right">
-          <input type="checkbox" class="control-input settings-switch" id="enable-ai-switch" onclick="toggleAI();"/>
+        <input class="control-input settings-switch" id="enable-ai-input" onclick="toggleAI();" onfocus="this.blur()" type="checkbox"/>
+      </div>
+    </div>
+    <div class="settings-row" id="ai-delay">
+      <div class="settings-col-left">
+        <label class="control-label" for="ai-delay-input">AI Delay</label>
+      </div>
+      <div class="settings-col-right">
+        <input class="control-input settings-number" disabled id="ai-delay-input" onchange="changeAIDelay(this);" type="number"/>
+      </div>
+    </div>
+    <hr>
+    <div class="settings-row" id="frame-rate">
+      <div class="settings-col-left">
+        <label class="control-label" for="frame-rate-input">Frame Rate</label>
+      </div>
+      <div class="settings-col-right">
+        <input class="control-input settings-number" id="frame-rate-input" onchange="changeFrameRate(this);" type="number"/>
+      </div>
+    </div>
+    <div class="settings-row" id="drop-frames">
+      <div class="settings-col-left">
+        <label class="control-label" for="drop-frames-input">Drop Frames</label>
+      </div>
+      <div class="settings-col-right">
+        <input class="control-input settings-number" id="drop-frames-input" onchange="changeDropFrames(this);" type="number"/>
       </div>
     </div>
     <div id="show-hint" class="settings-row">
       <div class="settings-col-left">
-        <label class="control-label" for="show-hint-switch">Show Hints</label>
+        <label class="control-label" for="show-hint-input">Show Hints</label>
       </div>
       <div class="settings-col-right">
-        <input type="checkbox" class="control-input settings-switch" id="show-hint-switch" onclick="toggleShowHint();"/>
+        <input class="control-input settings-switch" id="show-hint-input" onclick="toggleShowHint();" onfocus="this.blur()" type="checkbox"/>
       </div>
     </div>
   </div>
@@ -48,4 +73,9 @@
   <button class="btn btn-outline-secondary" id="replay-btn" onclick="resetBoard()" type="button">Play Again</button>
 </div>
 </body>
+<script type="text/javascript">
+    document.getElementById('ai-delay-input').value = CONFIG.aidelay;
+    document.getElementById('frame-rate-input').value = CONFIG.framerate;
+    document.getElementById('drop-frames-input').value = CONFIG.dropframes;
+</script>
 </html>

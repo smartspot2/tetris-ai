@@ -26,6 +26,7 @@
 
 .settings-row {
     display: flex;
+    padding: 3px 0;
 }
 
 .settings-col-left {
@@ -42,8 +43,14 @@
     display: inline-block;
     margin-top: 5px;
     margin-left: 20px;
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
+}
+
+.settings-number {
+    display: inline-block;
+    margin-left: 20px;
+    width: 50px;
 }
 
 #replay-btn-div {
