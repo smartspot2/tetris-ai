@@ -3,7 +3,6 @@ class AI {
         this.board = board;
         this.toexecute = null;
 
-        this.enabled = false;
         this.framesuntilnext = CONFIG.aidelay;
     }
 
@@ -12,7 +11,7 @@ class AI {
     }
 
     aistep() {
-        if (!this.enabled) {
+        if (!CONFIG.aienabled) {
             this.toexecute = null;
             return;
         }
@@ -183,7 +182,6 @@ class AI {
         score -= Math.pow(CONFIG.rows - potential.row, 2) * 5;
 
         // penalize wells
-        let maxheightdiff = 0;
         let heights = [];
         for (let c = 0; c < CONFIG.cols; c++) {
             let ht = arr.findIndex(row => row[c] !== 0);

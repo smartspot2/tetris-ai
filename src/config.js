@@ -10,6 +10,7 @@ const CONFIG = {
     framedelay: 30,
     framerate: 30,
 
+    aienabled: false,
     aidelay: 3,
     showhint: false,
 };

@@ -1,6 +1,7 @@
 class Board {
     /** @type {(number | string)[][]} */
     arr;
+
     /**
      * @param {number} x
      * @param {number} y
@@ -26,6 +27,7 @@ class Board {
 
         this.framesUntilDrop = CONFIG.framedelay;
         this.lineclears = 0;
+        this.gameover = false;
     }
 
     refillBag() {
@@ -39,10 +41,10 @@ class Board {
     draw() {
         this.drawBoard();
 
-        if (ai.enabled && ai.toexecute) {
+        if (CONFIG.aienabled && ai.toexecute) {
             let aitarget = ai.toexecute.tet;
             aitarget.draw('11');
-        } else if (!ai.enabled && CONFIG.showhint) {
+        } else if (!CONFIG.aienabled && CONFIG.showhint) {
             let possible = ai.getbestlist();
             for (let pos of possible) {
                 pos.tet.draw('11');
@@ -52,20 +54,23 @@ class Board {
         this.curtetromino.draw();
         this.nexttetromino.drawat(1.5, CONFIG.cols + 2, 0.75);
         if (this.heldtetromino) {
-            this.heldtetromino.drawat(1.5, -2 - 3*0.75, 0.75);
+            this.heldtetromino.drawat(1.5, -2 - 3 * 0.75, 0.75);
         }
-        this.getGhost(this.curtetromino).draw('33');
 
-        if (!this.framesUntilDrop--) {
-            this.framesUntilDrop = CONFIG.framedelay;
+        if (!this.gameover) {
+            this.getGhost(this.curtetromino).draw('33');
 
-            if (this.isValid(this.curtetromino, 1, 0)) {
-                this.curtetromino.moveDown();
-            } else {
-                this.placeCurTetromino();
+            if (!this.framesUntilDrop--) {
+                this.framesUntilDrop = CONFIG.framedelay;
+
+                if (this.isValid(this.curtetromino, 1, 0)) {
+                    this.curtetromino.moveDown();
+                } else {
+                    this.placeCurTetromino();
+                }
             }
+            ai.aistep();
         }
-        ai.aistep();
     }
 
     drawBoard() {
@@ -95,8 +100,8 @@ class Board {
         fill(230);
         stroke(0);
         strokeWeight(2);
-        rect(this.x + this.w + CONFIG.tilesize*(1.5 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize*5*0.75, CONFIG.tilesize*2.75);
-        rect(this.x - CONFIG.tilesize*(1.5 + 5*0.75 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize*5*0.75, CONFIG.tilesize*2.75);
+        rect(this.x + this.w + CONFIG.tilesize * (1.5 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize * 5 * 0.75, CONFIG.tilesize * 2.75);
+        rect(this.x - CONFIG.tilesize * (1.5 + 5 * 0.75 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize * 5 * 0.75, CONFIG.tilesize * 2.75);
         strokeWeight(1);
 
     }
@@ -150,7 +155,8 @@ class Board {
         for (let tet_r = 0; tet_r < tetromino.shape.length; tet_r++) {
             for (let tet_c = 0; tet_c < tetromino.shape[tet_r].length; tet_c++) {
                 if (!tetromino.shape[tet_r][tet_c]) continue;
-                let board_r = tetromino.r + tet_r + dr; let board_c = tetromino.c + tet_c + dc;
+                let board_r = tetromino.r + tet_r + dr;
+                let board_c = tetromino.c + tet_c + dc;
                 // No part of shape can be out of bounds
                 if (board_r >= CONFIG.rows || board_c < 0 || board_c >= CONFIG.cols) return false;
                 if (board_r < 0) continue;
@@ -171,6 +177,11 @@ class Board {
             this.refillBag();
         }
         this.framesUntilDrop = Math.floor(CONFIG.framedelay * 0.25);
+
+        // Check validity of new tetromino/check for gameover
+        if (this.getGhost(this.curtetromino).r === this.curtetromino.r) {
+            this.gameover = true;
+        }
     }
 
     /**

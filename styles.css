@@ -45,3 +45,14 @@
     width: 15px;
     height: 15px;
 }
+
+#replay-btn-div {
+    position: absolute;
+    left: max(calc(50% + 195px), 695px);
+    top: 400px;
+    width: 100px;
+}
+
+#replay-btn {
+    visibility: hidden;
+}

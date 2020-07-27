@@ -11,9 +11,7 @@ function setup() {
 
     CONFIG.board_tl = {x: 0.5 * (width - CONFIG.board_w), y: 0.5 * (height - CONFIG.board_h)};
 
-    board = new Board(0.5 * (width - CONFIG.board_w), 0.5 * (height - CONFIG.board_h),
-        CONFIG.board_w, CONFIG.board_h);
-    ai = new AI(board);
+    resetBoard();
 }
 
 function draw() {
@@ -25,8 +23,15 @@ function draw() {
     textSize(24);
     text('Lines cleared: ' + board.lineclears, width / 2, 50);
     textSize(20);
-    text('Next', width/2 + 242, 110);
-    text('Hold', width/2 - 241, 110);
+    text('Next', width / 2 + 242, 110);
+    text('Hold', width / 2 - 241, 110);
+
+    if (board.gameover) {
+        textSize(28);
+        text('Game Over', width / 2, height - 60);
+        document.getElementById('replay-btn').style.visibility = 'visible';
+        noLoop();
+    }
     board.draw();
 }
 
@@ -49,11 +54,19 @@ function keyPressed() {
 }
 
 function toggleAI() {
-    ai.enabled ^= 1;
+    CONFIG.aienabled ^= 1;
     console.log('AI toggled; now ' + ai.enabled);
 }
 
 function toggleShowHint() {
     CONFIG.showhint ^= 1
     console.log('Show hint toggled; now ' + CONFIG.showhint);
+}
+
+function resetBoard() {
+    board = new Board(0.5 * (width - CONFIG.board_w), 0.5 * (height - CONFIG.board_h),
+        CONFIG.board_w, CONFIG.board_h);
+    ai = new AI(board);
+    document.getElementById('replay-btn').style.visibility = 'hidden';
+    loop();
 }
