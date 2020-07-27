@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+  <!--  -----  p5js  -----  -->
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script>
+  <!--  Tetris config  -->
+  <script src="src/config.js"></script>
+  <!--  auxil js files -->
+  <script src="src/Tetromino.js"></script>
+  <script src="src/Board.js"></script>
+  <script src="src/AI.js"></script>
+  <!--  main sketch  -->
+  <script src="src/sketch.js"></script>
+  <!--  CSS  -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css"/>
+  <title>Tetris</title>
+</head>
+<body>
+<main>
+  <div id="sketch"></div>
+  <div id="settings">
+    <h5>Settings</h5>
+    <div id="enable-ai" class="settings-row">
+      <div class="settings-col-left">
+        <label class="control-label" for="enable-ai-switch">Enable AI</label>
+      </div>
+      <div class="settings-col-right">
+          <input type="checkbox" class="control-input settings-switch" id="enable-ai-switch" onclick="toggleAI();"/>
+      </div>
+    </div>
+    <div id="show-hint" class="settings-row">
+      <div class="settings-col-left">
+        <label class="control-label" for="show-hint-switch">Show Hints</label>
+      </div>
+      <div class="settings-col-right">
+        <input type="checkbox" class="control-input settings-switch" id="show-hint-switch" onclick="toggleShowHint();"/>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
