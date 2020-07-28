@@ -16,7 +16,7 @@
 
 #settings-bb {
     float: right;
-    margin-top: 100px;
+    margin-top: 50px;
     width: calc(50% - 425px);
     margin-bottom: 50px;
 }
@@ -25,7 +25,7 @@
     width: 300px;
     height: max-content;
     text-align: center;
-    padding: 20px 20px 30px;
+    padding: 20px;
 
     border: 1px solid black;
     background-color: #fafafa;
@@ -79,13 +79,85 @@
     width: 50px;
 }
 
-.statistics-row span {
+#settings-toggle {
+    display: block;
+    text-align: center;
+    padding: 1px 15px;
+    margin: 20px auto auto;
+}
+
+#basic-settings, #advanced-settings {
+    overflow-y: hidden;
+    max-height: 800px;
+
+    transition: max-height 1s ease-in-out;
+    -webkit-transition: max-height 1s ease-in-out;
+    -moz-transition: max-height 1s ease-in-out;
+}
+
+#basic-settings.collapsed, #advanced-settings.collapsed {
+    max-height: 0;
+
+    transition: max-height 1s cubic-bezier(0, 1, 0, 1);
+    -webkit-transition: max-height 1s cubic-bezier(0, 1, 0, 1);
+    -moz-transition: max-height 1s cubic-bezier(0, 1, 0, 1);
+}
+
+#advanced-settings label {
+    font-size: 85%;
+}
+
+#advanced-settings .settings-row {
+    padding: 0;
+}
+
+#advanced-settings .settings-number, #advanced-settings .settings-switch {
+    font-size: 85%;
+    height: 80%;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 10px;
+}
+
+#advanced-settings .settings-col-left {
+    flex: 85%;
+}
+
+#advanced-settings .settings-col-right {
+    flex: 35%;
+}
+
+.statistics-col-left, .statistics-col-right, .statistics-col-split {
     padding: 0 10px;
 }
 
 .statistics-number {
     font-family: monospace;
     font-size: 125%;
+}
+
+.statistics-col-split {
+    display: flex;
+    flex: 50%;
+}
+
+.statistics-split-right {
+    flex: 20%;
+    text-align: right;
+    color: #555;
+}
+
+.statistics-split-right > .statistics-number {
+    display: inline-block;
+    font-size: 100%;
+}
+
+.statistics-positive {
+    color: green;
+}
+
+.statistics-negative {
+    color: red;
 }
 
 #replay-btn-div {
@@ -119,6 +191,9 @@
         width: 60%;
     }
 
+    #replay-btn-div {
+        left: calc(30% + 220px);
+    }
 }
 
 @media screen and (max-width: 1330px) {
@@ -137,6 +212,10 @@
         display: block;
         margin: 25px auto;
         width: 100%;
+    }
+
+    #replay-btn-div {
+        left: calc(50% + 195px);
     }
 }
 

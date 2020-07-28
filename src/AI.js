@@ -53,6 +53,8 @@ class AI {
         if (Object.keys(this.toexecute.steps).length === 0) {
             this.toexecute = null;
         }
+        // Recurse to do all steps if aidelay = -1
+        if (this.toexecute && CONFIG.aidelay === -1) this.aistep();
     }
 
     getbestlist() {
@@ -162,15 +164,27 @@ class AI {
         let score = 0;
         let stats = this.getstatistics(potential);
         // check line clears
-        score += 200 * stats.lineclears;
+        score += CONFIG.weight_lineclears * stats.lineclears;
         // penalize holes
-        score -= 300 * stats.scaledholes;
+        if (CONFIG.scaled_holes) {
+            score -= CONFIG.weight_holes * stats.scaledholes;
+        } else {
+            score -= CONFIG.weight_holes * stats.totalholes;
+        }
         // penalize height
-        score -= stats.scaledboardheight;
+        if (CONFIG.scaled_boardheight) {
+            score -= CONFIG.weight_boardheight * stats.scaledboardheight;
+        } else {
+            score -= CONFIG.weight_boardheight * stats.boardheight;
+        }
         // penalize placement height
-        score -= 5 * stats.scaledplacementheight;
+        if (CONFIG.scaled_placementheight) {
+            score -= CONFIG.weight_placementheight * stats.scaledplacementheight;
+        } else {
+            score -= CONFIG.weight_placementheight * stats.placementheight;
+        }
         // penalize wells
-        score -= 75 * stats.avgheightdiff;
+        score -= CONFIG.weight_avgheightdiff * stats.avgheightdiff;
         return score;
     }
 
@@ -196,15 +210,15 @@ class AI {
                     stats.totalholes++;
                 }
             }
-            stats.scaledholes += Math.sqrt(numholes);
+            stats.scaledholes += Math.pow(numholes, CONFIG.exp_holes);
         }
         // board height
         let firstrowwithtile = arr.findIndex(row => !row.every(item => item === 0));
         stats.boardheight = CONFIG.rows - firstrowwithtile;
-        stats.scaledboardheight = Math.pow(stats.boardheight, 2);
+        stats.scaledboardheight = Math.pow(stats.boardheight, CONFIG.exp_boardheight);
         // placement height
         stats.placementheight = CONFIG.rows - potential.row;
-        stats.scaledplacementheight = Math.pow(CONFIG.rows - potential.row, 2);
+        stats.scaledplacementheight = Math.pow(CONFIG.rows - potential.row, CONFIG.exp_placementheight);
         // height distribution
         let heights = [];
         for (let c = 0; c < CONFIG.cols; c++) {
@@ -227,16 +241,30 @@ class AI {
 function displayScore(potential) {
     let HTMLscore = document.getElementById('stats-current-score');
     let HTMLlineclears = document.getElementById('stats-line-clears');
+    let HTMLlineclearscalc = document.getElementById('stats-line-clears-calc');
     let HTMLholes = document.getElementById('stats-holes');
+    let HTMLholescalc = document.getElementById('stats-holes-calc');
     let HTMLboardheight = document.getElementById('stats-board-height');
+    let HTMLboardheightcalc = document.getElementById('stats-board-height-calc');
     let HTMLplacementheight = document.getElementById('stats-placement-height');
+    let HTMLplacementheightcalc = document.getElementById('stats-placement-height-calc');
     let HTMLavgheightdiff = document.getElementById('stats-avg-height-diff');
+    let HTMLavgheightdiffcalc = document.getElementById('stats-avg-height-diff-calc');
     let score = ai.getscore(potential)
     let stats = ai.getstatistics(potential);
     HTMLscore.innerHTML = ((score < 0) ? '' : '&nbsp;') + (Math.round(score * 100) / 100);
     HTMLlineclears.innerHTML = stats.lineclears;
-    HTMLholes.innerHTML = String(Math.round(stats.scaledholes * 100) / 100);
+    HTMLlineclearscalc.innerHTML = String(Math.round(CONFIG.weight_lineclears * stats.lineclears * 100) / 100);
+    HTMLholes.innerHTML = String(Math.round((CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
+    HTMLholescalc.innerHTML = String(Math.round(-CONFIG.weight_holes *
+        (CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
     HTMLboardheight.innerHTML = String(Math.round(stats.boardheight * 100) / 100);
+    HTMLboardheightcalc.innerHTML = String(Math.round(-CONFIG.weight_boardheight *
+        (CONFIG.scaled_boardheight ? stats.scaledboardheight : stats.boardheight) * 100) / 100);
     HTMLplacementheight.innerHTML = String(Math.round(stats.placementheight * 100) / 100);
+    HTMLplacementheightcalc.innerHTML = String(Math.round(-CONFIG.weight_placementheight *
+        (CONFIG.scaled_placementheight ? stats.scaledplacementheight : stats.placementheight) * 100) / 100);
     HTMLavgheightdiff.innerHTML = String(Math.round(stats.avgheightdiff * 100) / 100);
+    HTMLavgheightdiffcalc.innerHTML = String(
+        Math.round(-CONFIG.weight_avgheightdiff * stats.avgheightdiff * 100) / 100);
 }

@@ -13,6 +13,18 @@ const CONFIG = {
     aienabled: false,
     aidelay: 3,
     showhint: false,
+
+    weight_lineclears: 200,
+    weight_holes: 300,
+    scaled_holes: true,
+    exp_holes: 0.66,
+    weight_boardheight: 1,
+    scaled_boardheight: true,
+    exp_boardheight: 2,
+    weight_placementheight: 5,
+    scaled_placementheight: true,
+    exp_placementheight: 2,
+    weight_avgheightdiff: 75
 };
 
 function toggleAI() {
@@ -31,39 +43,46 @@ function toggleShowHint() {
     console.info('Show hint toggled; now ' + CONFIG.showhint);
 }
 
-function changeAIDelay(el) {
+const MINSETTINGS = {
+    aidelay: -1,
+    framerate: 10,
+    dropframes: 0,
+    weight_lineclears: 0,
+    weight_holes: 0,
+    weight_boardheight: 0,
+    weight_placementheight: 0,
+    weight_avgheightdiff: 0,
+    exp_holes: 0,
+    exp_boardheight: 0,
+    exp_placementheight: 0
+};
+
+function changeSetting(el, setting) {
     if (isNaN(el.value)) {
-        el.value = CONFIG.aidelay;
+        el.value = CONFIG[setting];
         return;
     }
-    if (el.value < -1) {
-        el.value = -1;
+    if (el.value < MINSETTINGS[setting]) {
+        el.value = MINSETTINGS[setting];
     }
-    CONFIG.aidelay = Number(el.value);
-    console.info('AI Delay set to: ' + el.value);
+    CONFIG[setting] = Number(el.value);
+    if (setting === 'framerate') frameRate(CONFIG.framerate);
+    console.info(setting + ' set to: ' + el.value);
+    // Update statistics
+    if (CONFIG.aienabled && ai.toexecute) {
+        displayScore(ai.toexecute);
+    } else {
+        displayScore(ai.getpotential(board.curtetromino));
+    }
 }
 
-function changeFrameRate(el) {
-    if (isNaN(el.value)) {
-        el.value = CONFIG.framerate;
-        return;
+function toggleScaled(setting) {
+    CONFIG['scaled_' + setting.replace('-', '')] ^= 1;
+    if (CONFIG['scaled_' + setting.replace('-', '')]) {
+        if (setting === 'holes') document.getElementById('stats-holes-label').innerText = 'Holes (scaled)';
+        document.getElementById('exp-' + setting).removeAttribute('disabled');
+    } else {
+        if (setting === 'holes') document.getElementById('stats-holes-label').innerText = 'Holes';
+        document.getElementById('exp-' + setting).setAttribute('disabled', '');
     }
-    if (el.value < 10) {
-        el.value = 10;
-    }
-    CONFIG.framerate = Number(el.value);
-    frameRate(CONFIG.framerate);
-    console.info('Frame rate set to: ' + el.value);
-}
-
-function changeDropFrames(el) {
-    if (isNaN(el.value)) {
-        el.value = CONFIG.dropframes;
-        return;
-    }
-    if (el.value < 0) {
-        el.value = 0;
-    }
-    CONFIG.dropframes = Number(el.value);
-    console.info('Drop frames set to: ' + el.value);
 }
