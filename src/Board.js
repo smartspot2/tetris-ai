@@ -26,6 +26,7 @@ class Board {
         this.heldtetromino = null;
 
         this.framesUntilDrop = CONFIG.dropframes;
+        this.hasheld = false;
         this.lineclears = 0;
         this.gameover = false;
     }
@@ -133,6 +134,7 @@ class Board {
     }
 
     hold() {
+        if (this.hasheld) return;  // can't hold more than once
         if (this.heldtetromino) {
             let heldtype = this.heldtetromino.kind;
             this.heldtetromino.kind = this.curtetromino.kind;
@@ -148,7 +150,8 @@ class Board {
                 this.refillBag();
             }
         }
-        this.framesUntilDrop = Math.floor(CONFIG.dropframes * 0.25);
+        this.framesUntilDrop = 1;
+        this.hasheld = true;
     }
 
     isValid(tetromino, dr, dc) {
@@ -176,7 +179,8 @@ class Board {
         if (!this.curbag.length) {
             this.refillBag();
         }
-        this.framesUntilDrop = Math.floor(CONFIG.dropframes * 0.25);
+        this.framesUntilDrop = 1;
+        this.hasheld = false;  // can hold again
 
         // Check validity of new tetromino/check for gameover
         if (this.getGhost(this.curtetromino).r === this.curtetromino.r) {
