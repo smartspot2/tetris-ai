@@ -23,48 +23,111 @@
 </head>
 <body>
 <main>
+  <!--
+    TODO:
+      + Add statistics panel on LHS
+        - include current end position score (with details contributing to the score)
+      - Add DAS for manual gameplay
+      - Add ability to t-spin & other advanced techniques
+        - add to possible end positions for AI? (probably hard to do, would need another way of determining end positions)
+  -->
   <div id="sketch"></div>
-  <div id="settings">
-    <h5>Settings</h5>
-    <div id="enable-ai" class="settings-row">
-      <div class="settings-col-left">
-        <label class="control-label" for="enable-ai-input">Enable AI</label>
+  <div id="settings-bb">
+    <div id="settings">
+      <h5>Settings</h5>
+      <div class="settings-row" id="enable-ai">
+        <div class="settings-col-left">
+          <label class="control-label" for="enable-ai-input">Enable AI</label>
+        </div>
+        <div class="settings-col-right">
+          <input class="control-input settings-switch" id="enable-ai-input" onclick="toggleAI();" onfocus="this.blur()" type="checkbox"/>
+        </div>
       </div>
-      <div class="settings-col-right">
-        <input class="control-input settings-switch" id="enable-ai-input" onclick="toggleAI();" onfocus="this.blur()" type="checkbox"/>
+      <div class="settings-row" id="ai-delay">
+        <div class="settings-col-left">
+          <label class="control-label" for="ai-delay-input">AI Delay</label>
+        </div>
+        <div class="settings-col-right">
+          <input class="control-input settings-number" disabled id="ai-delay-input" onchange="changeAIDelay(this);" type="number"/>
+        </div>
+      </div>
+      <hr>
+      <div class="settings-row" id="frame-rate">
+        <div class="settings-col-left">
+          <label class="control-label" for="frame-rate-input">Frame Rate</label>
+        </div>
+        <div class="settings-col-right">
+          <input class="control-input settings-number" id="frame-rate-input" onchange="changeFrameRate(this);" type="number"/>
+        </div>
+      </div>
+      <div class="settings-row" id="drop-frames">
+        <div class="settings-col-left">
+          <label class="control-label" for="drop-frames-input">Drop Frames</label>
+        </div>
+        <div class="settings-col-right">
+          <input class="control-input settings-number" id="drop-frames-input" onchange="changeDropFrames(this);" type="number"/>
+        </div>
+      </div>
+      <div class="settings-row" id="show-hint">
+        <div class="settings-col-left">
+          <label class="control-label" for="show-hint-input">Show Hints</label>
+        </div>
+        <div class="settings-col-right">
+          <input class="control-input settings-switch" id="show-hint-input" onclick="toggleShowHint();" onfocus="this.blur()" type="checkbox"/>
+        </div>
       </div>
     </div>
-    <div class="settings-row" id="ai-delay">
-      <div class="settings-col-left">
-        <label class="control-label" for="ai-delay-input">AI Delay</label>
+  </div>
+  <div id="statistics-bb">
+    <div id="statistics">
+      <h5>Statistics</h5>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Current score</span>
+        </div>
+        <div class="statistics-col-right">
+          <span class="statistics-number" id="stats-current-score"></span>
+        </div>
       </div>
-      <div class="settings-col-right">
-        <input class="control-input settings-number" disabled id="ai-delay-input" onchange="changeAIDelay(this);" type="number"/>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Line clears</span>
+        </div>
+        <div class="statistics-col-right">
+          <span class="statistics-number" id="stats-line-clears"></span>
+        </div>
       </div>
-    </div>
-    <hr>
-    <div class="settings-row" id="frame-rate">
-      <div class="settings-col-left">
-        <label class="control-label" for="frame-rate-input">Frame Rate</label>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Holes (scaled)</span>
+        </div>
+        <div class="statistics-col-right">
+          <span class="statistics-number" id="stats-holes"></span>
+        </div>
       </div>
-      <div class="settings-col-right">
-        <input class="control-input settings-number" id="frame-rate-input" onchange="changeFrameRate(this);" type="number"/>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Board height</span>
+        </div>
+        <div class="statistics-col-right">
+          <span class="statistics-number" id="stats-board-height"></span>
+        </div>
       </div>
-    </div>
-    <div class="settings-row" id="drop-frames">
-      <div class="settings-col-left">
-        <label class="control-label" for="drop-frames-input">Drop Frames</label>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Placement height</span>
+        </div>
+        <div class="statistics-col-right">
+          <span class="statistics-number" id="stats-placement-height"></span>
+        </div>
       </div>
-      <div class="settings-col-right">
-        <input class="control-input settings-number" id="drop-frames-input" onchange="changeDropFrames(this);" type="number"/>
-      </div>
-    </div>
-    <div id="show-hint" class="settings-row">
-      <div class="settings-col-left">
-        <label class="control-label" for="show-hint-input">Show Hints</label>
-      </div>
-      <div class="settings-col-right">
-        <input class="control-input settings-switch" id="show-hint-input" onclick="toggleShowHint();" onfocus="this.blur()" type="checkbox"/>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Avg. height diff.</span>
+        </div>
+        <div class="statistics-col-right">
+          <span class="statistics-number" id="stats-avg-height-diff"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -74,6 +137,11 @@
 </div>
 </body>
 <script type="text/javascript">
+    if (CONFIG.aienabled) {
+        document.getElementById('enable-ai-input').setAttribute('checked', '');
+        document.getElementById('ai-delay-input').removeAttribute('disabled');
+    }
+    if (CONFIG.showhint) document.getElementById('show-hint-input').setAttribute('checked', '');
     document.getElementById('ai-delay-input').value = CONFIG.aidelay;
     document.getElementById('frame-rate-input').value = CONFIG.framerate;
     document.getElementById('drop-frames-input').value = CONFIG.dropframes;

@@ -53,6 +53,10 @@ function keyPressed() {
     } else if (keyCode === SHIFT) {
         board.hold();
     }
+
+    if (!CONFIG.aienabled) {
+        displayScore(ai.getpotential(board.curtetromino));
+    }
 }
 
 
