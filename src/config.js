@@ -29,7 +29,7 @@ const CONFIG = {
 
 function toggleAI() {
     CONFIG.aienabled ^= 1;
-    console.info('AI toggled; now ' + CONFIG.aienabled);
+    // console.info('AI toggled; now ' + CONFIG.aienabled);
     // Toggle other AI inputs
     if (CONFIG.aienabled) {
         document.getElementById('ai-delay-input').removeAttribute('disabled');
@@ -40,7 +40,7 @@ function toggleAI() {
 
 function toggleShowHint() {
     CONFIG.showhint ^= 1
-    console.info('Show hint toggled; now ' + CONFIG.showhint);
+    // console.info('Show hint toggled; now ' + CONFIG.showhint);
 }
 
 const MINSETTINGS = {
@@ -67,7 +67,7 @@ function changeSetting(el, setting) {
     }
     CONFIG[setting] = Number(el.value);
     if (setting === 'framerate') frameRate(CONFIG.framerate);
-    console.info(setting + ' set to: ' + el.value);
+    // console.info(setting + ' set to: ' + el.value);
     // Update statistics
     if (CONFIG.aienabled && ai.toexecute) {
         displayScore(ai.toexecute);

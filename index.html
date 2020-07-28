@@ -25,8 +25,6 @@
 <main>
   <!--
     TODO:
-      + Add statistics panel on LHS
-        - include current end position score (with details contributing to the score)
       - Add DAS for manual gameplay
       - Add ability to t-spin & other advanced techniques
         - add to possible end positions for AI? (probably hard to do, would need another way of determining end positions)
@@ -35,136 +33,165 @@
   <div id="settings-bb">
     <div id="settings">
       <h5>Settings</h5>
-      <div id="basic-settings">
-        <div class="settings-row" id="enable-ai">
-          <div class="settings-col-left">
-            <label class="control-label" for="enable-ai-input">Enable AI</label>
+      <div class="collapsed" id="settings-content">
+        <div id="basic-settings">
+          <div class="settings-row" id="enable-ai">
+            <div class="settings-col-left">
+              <label class="control-label" for="enable-ai-input">Enable AI</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-switch" id="enable-ai-input"
+                     onclick="toggleAI();" onfocus="this.blur()" type="checkbox"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-switch" id="enable-ai-input" onclick="toggleAI();" onfocus="this.blur()" type="checkbox"/>
+          <div class="settings-row" id="ai-delay">
+            <div class="settings-col-left">
+              <label class="control-label" for="ai-delay-input">AI Delay</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" disabled
+                     id="ai-delay-input"
+                     min="-1" onchange="changeSetting(this, 'aidelay');" type="number"/>
+            </div>
           </div>
-        </div>
-        <div class="settings-row" id="ai-delay">
-          <div class="settings-col-left">
-            <label class="control-label" for="ai-delay-input">AI Delay</label>
+          <hr>
+          <div class="settings-row" id="frame-rate">
+            <div class="settings-col-left">
+              <label class="control-label" for="frame-rate-input">Frame Rate</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="frame-rate-input"
+                     min="10"
+                     onchange="changeSetting(this, 'framerate');" type="number"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" disabled id="ai-delay-input" onchange="changeSetting(this, 'aidelay');" type="number"/>
+          <div class="settings-row" id="drop-frames">
+            <div class="settings-col-left">
+              <label class="control-label" for="drop-frames-input">Drop Frames</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="drop-frames-input"
+                     min="0"
+                     onchange="changeSetting(this, 'dropframes');" type="number"/>
+            </div>
           </div>
-        </div>
-        <hr>
-        <div class="settings-row" id="frame-rate">
-          <div class="settings-col-left">
-            <label class="control-label" for="frame-rate-input">Frame Rate</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="frame-rate-input" onchange="changeSetting(this, 'framerate');" type="number"/>
-          </div>
-        </div>
-        <div class="settings-row" id="drop-frames">
-          <div class="settings-col-left">
-            <label class="control-label" for="drop-frames-input">Drop Frames</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="drop-frames-input" onchange="changeSetting(this, 'dropframes');" type="number"/>
-          </div>
-        </div>
-        <div class="settings-row" id="show-hint">
-          <div class="settings-col-left">
-            <label class="control-label" for="show-hint-input">Show Hints</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-switch" id="show-hint-input" onclick="toggleShowHint();" onfocus="this.blur()" type="checkbox"/>
-          </div>
-        </div>
-      </div>
-      <div class="collapsed" id="advanced-settings">
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="weight-line-clears">Line clears wt.</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="weight-line-clears" onchange="changeSetting(this, 'weight_lineclears');" type="number"/>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="weight-holes">Holes wt.</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="weight-holes" onchange="changeSetting(this, 'weight_holes');" type="number"/>
+          <div class="settings-row" id="show-hint">
+            <div class="settings-col-left">
+              <label class="control-label" for="show-hint-input">Show Hints</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-switch" id="show-hint-input"
+                     onclick="toggleShowHint();" onfocus="this.blur()" type="checkbox"/>
+            </div>
           </div>
         </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="weight-board-height">Board height wt.</label>
+        <div class="collapsed" id="advanced-settings">
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-line-clears">Line clears wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="weight-line-clears"
+                     min="0"
+                     onchange="changeSetting(this, 'weight_lineclears');" type="number"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="weight-board-height" onchange="changeSetting(this, 'weight_boardheight');" type="number"/>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-holes">Holes wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="weight-holes"
+                     min="0"
+                     onchange="changeSetting(this, 'weight_holes');" type="number"/>
+            </div>
           </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="weight-placement-height">Placement height wt.</label>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-board-height">Board height wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="weight-board-height"
+                     min="0"
+                     onchange="changeSetting(this, 'weight_boardheight');" type="number"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="weight-placement-height" onchange="changeSetting(this, 'weight_placementheight');" type="number"/>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-placement-height">Placement height wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="weight-placement-height"
+                     min="0"
+                     onchange="changeSetting(this, 'weight_placementheight');" type="number"/>
+            </div>
           </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="weight-avg-height-diff">Avg. height diff. wt.</label>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-avg-height-diff">Avg. height diff. wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" id="weight-avg-height-diff"
+                     min="0"
+                     onchange="changeSetting(this, 'weight_avgheightdiff');" type="number"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" id="weight-avg-height-diff" onchange="changeSetting(this, 'weight_avgheightdiff');" type="number"/>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="scaled-holes">Holes scaled</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-switch" id="scaled-holes"
+                     onclick="toggleScaled('holes');" type="checkbox"/>
+            </div>
           </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="scaled-holes">Holes scaled</label>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="exp-holes">Holes scale exp.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" disabled
+                     id="exp-holes"
+                     min="0" onchange="changeSetting(this, 'exp_holes');" step="0.01" type="number"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-switch" id="scaled-holes" onclick="toggleScaled('holes');" type="checkbox"/>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="scaled-board-height">Board height scaled</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-switch" id="scaled-board-height"
+                     onclick="toggleScaled('board-height')" type="checkbox"/>
+            </div>
           </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="exp-holes">Holes scale exp.</label>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="exp-board-height">Board height scale exp.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" disabled
+                     id="exp-board-height"
+                     min="0" onchange="changeSetting(this, 'exp_boardheight');" step="0.01" type="number"/>
+            </div>
           </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" disabled id="exp-holes" onchange="changeSetting(this, 'exp_holes');" type="number"/>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="scaled-placement-height">Placement height scaled</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-switch" id="scaled-placement-height"
+                     onclick="toggleScaled('placement-height')" type="checkbox"/>
+            </div>
           </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="scaled-board-height">Board height scaled</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-switch" id="scaled-board-height" onclick="toggleScaled('board-height')" type="checkbox"/>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="exp-board-height">Board height scale exp.</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" disabled id="exp-board-height" onchange="changeSetting(this, 'exp_boardheight');" type="number"/>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="scaled-placement-height">Placement height scaled</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-switch" id="scaled-placement-height" onclick="toggleScaled('placement-height')" type="checkbox"/>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-col-left">
-            <label class="control-label" for="exp-placement-height">Placement height scale exp.</label>
-          </div>
-          <div class="settings-col-right">
-            <input class="control-input settings-number" disabled id="exp-placement-height" onchange="changeSetting(this, 'exp_placementheight');" type="number"/>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="exp-placement-height">Placement height scale exp.</label>
+            </div>
+            <div class="settings-col-right">
+              <input class="control-input settings-number" disabled
+                     id="exp-placement-height"
+                     min="0" onchange="changeSetting(this, 'exp_placementheight');" step="0.01" type="number"/>
+            </div>
           </div>
         </div>
       </div>
@@ -290,20 +317,21 @@
 
     // Disable default keyboard scrolling
     window.addEventListener("keydown", function (e) {
-        if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
+        if (!document.activeElement.className.includes('settings-number') && [32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
             e.preventDefault();
         }
     }, false);
 
     function toggleSettings(el) {
-        console.log(el.innerText);
         if (el.innerText.includes('Advanced')) {
             document.getElementById('basic-settings').classList.add('collapsed');
             document.getElementById('advanced-settings').classList.remove('collapsed');
+            document.getElementById('settings-content').classList.remove('collapsed');
             el.innerText = 'Basic';
         } else {
             document.getElementById('basic-settings').classList.remove('collapsed');
             document.getElementById('advanced-settings').classList.add('collapsed');
+            document.getElementById('settings-content').classList.add('collapsed');
             el.innerText = 'Advanced';
         }
     }

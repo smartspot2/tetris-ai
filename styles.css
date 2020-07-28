@@ -86,21 +86,36 @@
     margin: 20px auto auto;
 }
 
-#basic-settings, #advanced-settings {
-    overflow-y: hidden;
-    max-height: 800px;
+#settings-content {
+    position: relative;
+    overflow: hidden;
+    height: 333px;
 
-    transition: max-height 1s ease-in-out;
-    -webkit-transition: max-height 1s ease-in-out;
-    -moz-transition: max-height 1s ease-in-out;
+    transition: height 0.25s ease-in-out;
+    -webkit-transition: height 0.25s ease-in-out;
+    -moz-transition: height 0.25s ease-in-out;
 }
 
-#basic-settings.collapsed, #advanced-settings.collapsed {
-    max-height: 0;
+#settings-content.collapsed {
+    height: 223px;
+}
 
-    transition: max-height 1s cubic-bezier(0, 1, 0, 1);
-    -webkit-transition: max-height 1s cubic-bezier(0, 1, 0, 1);
-    -moz-transition: max-height 1s cubic-bezier(0, 1, 0, 1);
+#basic-settings, #advanced-settings {
+    position: absolute;
+    width: 100%;
+    left: 0;
+
+    transition: left 0.25s ease-in-out;
+    -webkit-transition: left 0.25s ease-in-out;
+    -moz-transition: left 0.25s ease-in-out;
+}
+
+#basic-settings.collapsed {
+    left: -300px;
+}
+
+#advanced-settings.collapsed {
+    left: 300px;
 }
 
 #advanced-settings label {
