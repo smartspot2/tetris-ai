@@ -17,6 +17,7 @@ class AI {
         }
         if (!this.toexecute) {
             this.toexecute = this.selectdest();
+            displayScore(this.toexecute);
         }
         if (this.framesuntilnext-- > 0) {
             return;
@@ -102,19 +103,7 @@ class AI {
                     temptet.r = -1;
                     temptet.c = c;
                     if (this.board.isValid(temptet, 0, 0)) {
-                        let prevarr = this.board.arr.map(a => a.slice());
-                        let finaltet = this.board.getGhost(temptet);
-                        this.board.place(finaltet);
-                        let curarr = this.board.arr.map(a => a.slice());
-                        // console.log({prevarr, curarr});
-                        this.board.arr = prevarr;
-                        let potential = {
-                            steps: {},
-                            row: finaltet.r,
-                            col: finaltet.c,
-                            arr: curarr,
-                            tet: finaltet
-                        }
+                        let potential = this.getpotential(temptet);
                         let stepsequence = [];
                         // Hold
                         if (temptetidx === 1) {
@@ -129,7 +118,7 @@ class AI {
                             stepsequence.push('c');
                         }
                         // Movement
-                        let total_dc = finaltet.c - orig_c;
+                        let total_dc = potential.tet.c - orig_c;
                         let dc_dir = Math.sign(total_dc);
                         for (let dc = 0; Math.abs(dc) < Math.abs(total_dc); dc += dc_dir) {
                             if (dc_dir === -1) {
@@ -149,6 +138,21 @@ class AI {
         return poslist;
     }
 
+    getpotential(tet) {
+        let prevarr = this.board.arr.map(a => a.slice());
+        let finaltet = this.board.getGhost(tet);
+        this.board.place(finaltet);
+        let curarr = this.board.arr.map(a => a.slice());
+        this.board.arr = prevarr;
+        return {
+            steps: {},
+            row: finaltet.r,
+            col: finaltet.c,
+            arr: curarr,
+            tet: finaltet
+        };
+    }
+
     /**
      * Scores a potential end position
      * @param potential
@@ -156,14 +160,32 @@ class AI {
      */
     getscore(potential) {
         let score = 0;
-        let arr = potential.arr;
+        let stats = this.getstatistics(potential);
         // check line clears
+        score += 200 * stats.lineclears;
+        // penalize holes
+        score -= 300 * stats.scaledholes;
+        // penalize height
+        score -= stats.scaledboardheight;
+        // penalize placement height
+        score -= 5 * stats.scaledplacementheight;
+        // penalize wells
+        score -= 75 * stats.avgheightdiff;
+        return score;
+    }
+
+    getstatistics(potential) {
+        let stats = {};
+        let arr = potential.arr;
+        // line clears
+        stats.lineclears = 0;
         for (let r = 0; r < CONFIG.rows; r++) {
             if (!arr[r].includes(0)) {
-                score += 200;
+                stats.lineclears += 1;
             }
         }
-        // penalize holes
+        // holes
+        stats.totalholes = stats.scaledholes = 0;
         for (let c = 0; c < CONFIG.cols; c++) {
             let firsttile = arr.findIndex(row => row[c] !== 0);
             if (firsttile === -1) continue;
@@ -171,17 +193,19 @@ class AI {
             for (let r = firsttile; r < CONFIG.rows; r++) {
                 if (arr[r][c] === 0) {
                     numholes++;
+                    stats.totalholes++;
                 }
             }
-            score -= 300 * Math.sqrt(numholes);
+            stats.scaledholes += Math.sqrt(numholes);
         }
-        // penalize height
+        // board height
         let firstrowwithtile = arr.findIndex(row => !row.every(item => item === 0));
-        score -= Math.pow((CONFIG.rows - firstrowwithtile), 2);
-        // penalize placement height
-        score -= Math.pow(CONFIG.rows - potential.row, 2) * 5;
-
-        // penalize wells
+        stats.boardheight = CONFIG.rows - firstrowwithtile;
+        stats.scaledboardheight = Math.pow(stats.boardheight, 2);
+        // placement height
+        stats.placementheight = CONFIG.rows - potential.row;
+        stats.scaledplacementheight = Math.pow(CONFIG.rows - potential.row, 2);
+        // height distribution
         let heights = [];
         for (let c = 0; c < CONFIG.cols; c++) {
             let ht = arr.findIndex(row => row[c] !== 0);
@@ -195,7 +219,24 @@ class AI {
         for (let c = 1; c < CONFIG.cols; c++) {
             sumheightdiffs += Math.abs(heights[c] - heights[c - 1]);
         }
-        score -= sumheightdiffs * 75 / (CONFIG.cols - 1);
-        return score;
+        stats.avgheightdiff = sumheightdiffs / (CONFIG.cols - 1);
+        return stats;
     }
+}
+
+function displayScore(potential) {
+    let HTMLscore = document.getElementById('stats-current-score');
+    let HTMLlineclears = document.getElementById('stats-line-clears');
+    let HTMLholes = document.getElementById('stats-holes');
+    let HTMLboardheight = document.getElementById('stats-board-height');
+    let HTMLplacementheight = document.getElementById('stats-placement-height');
+    let HTMLavgheightdiff = document.getElementById('stats-avg-height-diff');
+    let score = ai.getscore(potential)
+    let stats = ai.getstatistics(potential);
+    HTMLscore.innerHTML = ((score < 0) ? '' : '&nbsp;') + (Math.round(score * 100) / 100);
+    HTMLlineclears.innerHTML = stats.lineclears;
+    HTMLholes.innerHTML = String(Math.round(stats.scaledholes * 100) / 100);
+    HTMLboardheight.innerHTML = String(Math.round(stats.boardheight * 100) / 100);
+    HTMLplacementheight.innerHTML = String(Math.round(stats.placementheight * 100) / 100);
+    HTMLavgheightdiff.innerHTML = String(Math.round(stats.avgheightdiff * 100) / 100);
 }
