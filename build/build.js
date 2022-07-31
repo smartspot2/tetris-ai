@@ -769,7 +769,7 @@ const CONFIG = {
     dropframes: 30,
     framerate: 30,
     aienabled: false,
-    aidelay: 3,
+    aidelay: 1,
     showhint: false,
     weight_lineclears: 200,
     weight_holes: 300,

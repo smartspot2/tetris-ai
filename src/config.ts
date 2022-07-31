@@ -15,7 +15,7 @@ const CONFIG = {
   framerate: 30,
 
   aienabled: false,
-  aidelay: 3,
+  aidelay: 1,
   showhint: false,
 
   weight_lineclears: 200,
