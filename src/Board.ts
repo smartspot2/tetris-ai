@@ -38,9 +38,9 @@ class Board {
   }
 
   refillBag(): void {
-    this.curbag = [new Tetromino("O", -2, 4)];
+    this.curbag = [new Tetromino("O", -2, 4, Rotation.SPAWN)];
     for (let kind of ["I", "J", "L", "S", "T", "Z"] as (keyof typeof TetrominoType)[]) {
-      this.curbag.push(new Tetromino(kind, -2, 3));
+      this.curbag.push(new Tetromino(kind, -2, 3, Rotation.SPAWN));
     }
     this.curbag = shuffle(this.curbag);
   }
@@ -50,12 +50,12 @@ class Board {
 
     if (CONFIG.aienabled && ai.toexecute) {
       let aitarget = ai.toexecute.tet;
-      aitarget.draw(17);
+      aitarget.draw(CONFIG.aitarget_alpha);
     } else if (!CONFIG.aienabled && CONFIG.showhint) {
-      let possible = ai.getbestlist();
-      for (let pos of possible) {
-        pos.tet.draw(17);
+      if (ai.toexecute == null) {
+        ai.toexecute = ai.selectdest();
       }
+      ai.toexecute.tet.draw(CONFIG.hint_alpha);
     }
 
     this.curtetromino.draw();
@@ -65,7 +65,7 @@ class Board {
     }
 
     if (!this.gameover) {
-      this.getGhost(this.curtetromino).draw(51);
+      this.getGhost(this.curtetromino).draw(CONFIG.ghost_alpha);
 
       if (!this.framesUntilDrop--) {
         this.framesUntilDrop = CONFIG.dropframes;
@@ -131,10 +131,10 @@ class Board {
    * Rotate tetromino if valid
    */
   rotate(tetromino: Tetromino, direction: Rotation): void {
-    let origshape = tetromino.shape.slice();
-    tetromino.shape = tetromino.getRotation(direction);
+    const origRotation = tetromino.rotation;
+    tetromino.rotate(direction);
     if (!this.isValid(tetromino, 0, 0)) {
-      tetromino.shape = origshape;
+      tetromino.rotation = origRotation;
     }
   }
 
@@ -160,9 +160,10 @@ class Board {
   }
 
   isValid(tetromino: Tetromino, dr: number, dc: number): boolean {
-    for (let tet_r = 0; tet_r < tetromino.shape.length; tet_r++) {
-      for (let tet_c = 0; tet_c < tetromino.shape[tet_r].length; tet_c++) {
-        if (!tetromino.shape[tet_r][tet_c]) continue;
+    const shape = tetromino.getShape();
+    for (let tet_r = 0; tet_r < shape.length; tet_r++) {
+      for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
+        if (!shape[tet_r][tet_c]) continue;
         let board_r = tetromino.r + tet_r + dr;
         let board_c = tetromino.c + tet_c + dc;
         // No part of shape can be out of bounds
@@ -177,6 +178,7 @@ class Board {
   }
 
   placeCurTetromino(): void {
+    ai.toexecute = null;
     this.place(this.curtetromino);
     this.checklineclears();
     this.curtetromino = this.nexttetromino;
@@ -197,25 +199,28 @@ class Board {
    * Place on board, with no checks
    */
   place(tetromino: Tetromino): void {
-    for (let tet_r = 0; tet_r < tetromino.shape.length; tet_r++) {
-      for (let tet_c = 0; tet_c < tetromino.shape[tet_r].length; tet_c++) {
-        if (!tetromino.shape[tet_r][tet_c]) continue;
+    const shape = tetromino.getShape();
+    for (let tet_r = 0; tet_r < shape.length; tet_r++) {
+      for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
+        if (!shape[tet_r][tet_c]) continue;
         if (tetromino.r + tet_r >= CONFIG.rows || tetromino.r + tet_r < 0 ||
           tetromino.c + tet_c < 0 || tetromino.c + tet_c >= CONFIG.cols) continue;
 
-        if (!this.arr[tetromino.r + tet_r][tetromino.c + tet_c]) {
+        if (this.arr[tetromino.r + tet_r][tetromino.c + tet_c] === 0) {
           this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = color(TetrominoType[tetromino.kind].color);
         } else {
-          throw Error("Invalid tetromino placement");
+          throw Error(`Invalid tetromino (${tetromino.kind}) placement: is ${this.arr[tetromino.r + tet_r][tetromino.c + tet_c]} (${tetromino.r + tet_r}, ${tetromino.c + tet_c})`);
         }
       }
     }
   }
 
-  checklineclears(): void {
+  checklineclears(updateStat: boolean = true): void {
     for (let r = 0; r < CONFIG.rows; r++) {
       if (!this.arr[r].includes(0)) {
-        this.lineclears += 1;
+        if (updateStat) {
+          this.lineclears += 1;
+        }
         this.arr.splice(r, 1);
         this.arr.splice(0, 0, Array(CONFIG.cols).fill(0));
       }

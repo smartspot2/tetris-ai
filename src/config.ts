@@ -7,6 +7,10 @@ const CONFIG = {
   tilesize: 30,
 
   tetromino_stroke: 190,
+  ghost_alpha: 51,
+  aitarget_alpha: 100,
+  hint_alpha: 17,
+
   dropframes: 30,
   framerate: 30,
 
@@ -24,7 +28,8 @@ const CONFIG = {
   weight_placementheight: 5,
   scaled_placementheight: true,
   exp_placementheight: 2,
-  weight_avgheightdiff: 75
+  weight_avgheightdiff: 75,
+  aiturnimprovement: 100
 };
 
 function toggleAI() {

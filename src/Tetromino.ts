@@ -1,25 +1,32 @@
 enum Rotation {
-  CLOCKWISE,
-  COUNTERCLOCKWISE
+  SPAWN = 0,
+  CLOCKWISE = 1,
+  FLIP = 2,
+  COUNTERCLOCKWISE = 3
 }
+
+const rotateFromState = (state: Rotation, rotation: Rotation): Rotation => {
+  return (state + rotation) % 4 as Rotation;
+};
 
 class Tetromino {
   kind: keyof typeof TetrominoType;
-  shape: number[][];
+  rotation: Rotation;
   r: number;
   c: number;
 
   /**
    * Creates a tetromino object in arr coordinates
-   * @param kind Tetronimno name
-   * @param r    Topleft row relative to arr
-   * @param c    Topleft col relative to arr
+   * @param kind     Tetronimno name
+   * @param r        Topleft row relative to arr
+   * @param c        Topleft col relative to arr
+   * @param rotation current rotation value relative to spawn
    */
-  constructor(kind: keyof typeof TetrominoType, r: number, c: number) {
+  constructor(kind: keyof typeof TetrominoType, r: number, c: number, rotation: Rotation) {
     this.kind = kind;
-    this.shape = TetrominoType[kind].shape as unknown as number[][];
     this.r = r;
     this.c = c;
+    this.rotation = rotation;
   }
 
   draw(alpha?: number): void {
@@ -40,9 +47,10 @@ class Tetromino {
       if (this.kind === "I") c -= 0.375;
       if (this.kind === "O") c += 0.375;
     }
-    for (let shape_r = 0; shape_r < this.shape.length; shape_r++) {
-      for (let shape_c = 0; shape_c < this.shape[shape_r].length; shape_c++) {
-        if (this.shape[shape_r][shape_c] && r + shape_r >= 0) {
+    const shape = this.getShape();
+    for (let shape_r = 0; shape_r < shape.length; shape_r++) {
+      for (let shape_c = 0; shape_c < shape[shape_r].length; shape_c++) {
+        if (shape[shape_r][shape_c] && r + shape_r >= 0) {
           rect(CONFIG.board_tl.x + CONFIG.tilesize * c + CONFIG.tilesize * shape_c * scale,
             CONFIG.board_tl.y + CONFIG.tilesize * r + CONFIG.tilesize * shape_r * scale,
             CONFIG.tilesize * scale, CONFIG.tilesize * scale);
@@ -55,14 +63,35 @@ class Tetromino {
     this.r += 1;
   }
 
+  getShape(): number[][] {
+    return this.getRotation(Rotation.SPAWN);
+  }
+
   getRotation(direction: Rotation): number[][] {
-    let newshape: number[][] = Array(this.shape.length).fill(0).map(() => Array(this.shape[0].length).fill(0));
-    for (let r = 0; r < this.shape.length; r++) {
-      for (let c = 0; c < this.shape[r].length; c++) {
-        if (direction === Rotation.COUNTERCLOCKWISE) {
-          newshape[r][c] = this.shape[c][this.shape[r].length - r - 1];
-        } else if (direction === Rotation.CLOCKWISE) {
-          newshape[r][c] = this.shape[this.shape.length - c - 1][r];
+    // copy shape
+    const shape = TetrominoType[this.kind].shape as unknown as number[][];
+    return this.getRotationFromShape(shape, rotateFromState(this.rotation, direction));
+  }
+
+  private getRotationFromShape(shape: number[][], direction: Rotation) {
+    if (direction === Rotation.SPAWN) {
+      return shape;
+    }
+
+    let newshape: number[][] = shape.map(row => row.slice());
+    const size = shape.length;
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        switch (direction) {
+          case Rotation.COUNTERCLOCKWISE:
+            newshape[r][c] = shape[c][size - r - 1];
+            break;
+          case Rotation.CLOCKWISE:
+            newshape[r][c] = shape[size - c - 1][r];
+            break;
+          case Rotation.FLIP:
+            newshape[r][c] = shape[size - r - 1][size - c - 1];
+            break;
         }
       }
     }
@@ -70,15 +99,21 @@ class Tetromino {
   }
 
   copy(): Tetromino {
-    let tetcopy = new Tetromino(this.kind, this.r, this.c);
-    tetcopy.shape = this.shape;
-    return tetcopy;
+    return new Tetromino(this.kind, this.r, this.c, this.rotation);
   }
 
   reset(): void {
-    this.shape = TetrominoType[this.kind].shape as unknown as number[][];
+    this.rotation = Rotation.SPAWN;
     this.r = -2;
     this.c = this.kind === "O" ? 4 : 3;
+  }
+
+  toString() {
+    return `${this.kind}/${this.r}/${this.c}/${this.rotation}`;
+  }
+
+  rotate(direction: Rotation) {
+    this.rotation = rotateFromState(this.rotation, direction);
   }
 }
 

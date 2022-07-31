@@ -1,4 +1,14 @@
 "use strict";
+var AIStep;
+(function (AIStep) {
+    AIStep["RIGHT"] = "R";
+    AIStep["LEFT"] = "L";
+    AIStep["DROP"] = "D";
+    AIStep["CLOCKWISE"] = "C";
+    AIStep["COUNTERCLOCKWISE"] = "c";
+    AIStep["HOLD"] = "H";
+    AIStep["DOWN"] = "d"; // either press down, or wait for the tetromino to drop by one
+})(AIStep || (AIStep = {}));
 class AI {
     constructor(board) {
         this.board = board;
@@ -10,7 +20,6 @@ class AI {
     }
     aistep() {
         if (!CONFIG.aienabled) {
-            this.toexecute = null;
             return;
         }
         if (!this.toexecute) {
@@ -21,55 +30,110 @@ class AI {
             return;
         }
         this.framesuntilnext = CONFIG.aidelay;
-        // only execute subsections <= current row position (+1 to account for above the board)
-        let curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curtetromino.r + 1;
+        // only execute subsections <= current row position
+        let curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curtetromino.r;
         let nextstep = null;
-        let nextstepnumber = -1;
+        let nextstepnumber = 99;
         for (let [idx, step] of this.toexecute.steps.entries()) {
-            if (step.length > 0 && Number(idx) <= curstepnumber) {
+            // get earliest
+            if (step.length > 0 && idx <= curstepnumber && idx <= nextstepnumber) {
                 nextstep = step;
                 nextstepnumber = idx;
-                break;
             }
         }
-        if (nextstep == null || nextstepnumber == -1)
+        if (nextstep == null || nextstepnumber == 99)
             return;
         let cmd = nextstep.shift();
         switch (cmd) {
-            case "R":
+            case AIStep.RIGHT:
                 this.board.move(this.board.curtetromino, 0, 1);
                 break;
-            case "L":
+            case AIStep.LEFT:
                 this.board.move(this.board.curtetromino, 0, -1);
                 break;
-            case "d":
+            case AIStep.DROP:
                 this.board.moveDrop(this.board.curtetromino);
                 break;
-            case "C":
+            case AIStep.CLOCKWISE:
                 this.board.rotate(this.board.curtetromino, Rotation.CLOCKWISE);
                 break;
-            case "c":
+            case AIStep.COUNTERCLOCKWISE:
                 this.board.rotate(this.board.curtetromino, Rotation.COUNTERCLOCKWISE);
                 break;
-            case "H":
+            case AIStep.DOWN:
+                // only move down if it's in the position to do so
+                if (this.board.curtetromino.r <= nextstepnumber) {
+                    this.board.move(this.board.curtetromino, 1, 0);
+                }
+                break;
+            case AIStep.HOLD:
                 this.board.hold();
                 break;
         }
-        if (nextstep.length === 0) {
-            this.toexecute.steps.delete(nextstepnumber);
+        if (this.toexecute !== null) {
+            if (nextstep.length === 0) {
+                this.toexecute.steps.delete(nextstepnumber);
+            }
+            if (this.toexecute.steps.size === 0) {
+                this.toexecute = null;
+            }
+            // Recurse to do all steps if aidelay = -1
+            if (CONFIG.aidelay === -1)
+                this.aistep();
         }
-        if (this.toexecute.steps.size === 0) {
-            this.toexecute = null;
-        }
-        // Recurse to do all steps if aidelay = -1
-        if (this.toexecute && CONFIG.aidelay === -1)
-            this.aistep();
     }
     getbestlist() {
-        let poslist = this.getendpositions();
+        // starting values of the current and next tetrominos
+        const curTet = this.board.curtetromino.copy();
+        let altTet, nextTet;
+        if (this.board.heldtetromino != null) {
+            altTet = this.board.heldtetromino.copy();
+            nextTet = this.board.nexttetromino.copy();
+        }
+        else {
+            altTet = this.board.nexttetromino.copy();
+            nextTet = undefined;
+        }
+        // get all possible end positions
+        let poslist = this.bfsendpositions(curTet.copy(), altTet.copy());
+        // filter to only the top 25%
         let scorelist = poslist.map(pos => this.getscore(pos));
-        let maxScore = Math.max(...scorelist);
-        return poslist.filter((pos, idx) => scorelist[idx] === maxScore);
+        let sortedScoreList = scorelist.slice();
+        sortedScoreList.sort((a, b) => b - a);
+        let cutoff = sortedScoreList[Math.floor(scorelist.length / 4)];
+        if (cutoff == sortedScoreList[0]) {
+            cutoff -= 1; // include the top score if necessary
+        }
+        poslist = poslist.filter((_pos, idx) => scorelist[idx] > cutoff);
+        scorelist = scorelist.filter(score => score > cutoff);
+        // bump previous; need to have a strict improvement to take the next
+        scorelist = scorelist.map(score => score + CONFIG.aiturnimprovement);
+        // get all possible end positions for the next turn, for each one of the previous
+        const prevArr = this.board.arr.map(a => a.slice());
+        const nextScores = poslist.map(pos => {
+            this.board.place(pos.tet); // place the tetromino
+            this.board.checklineclears(false);
+            let nextStart, nextAlt;
+            if (nextTet === undefined) {
+                nextStart = pos.tet.kind === curTet.kind ? altTet.copy() : curTet.copy();
+                nextAlt = undefined;
+            }
+            else if (pos.tet.kind === curTet.kind) {
+                nextStart = nextTet.copy();
+                nextAlt = altTet.copy();
+            }
+            else {
+                nextStart = altTet.copy();
+                nextAlt = nextTet.copy();
+            }
+            const nextPosList = this.bfsendpositions(nextStart, nextAlt); // get all next end positions
+            const nextScoreList = nextPosList.map(nextPos => this.getscore(nextPos));
+            // restore the board
+            this.board.arr = prevArr.map(a => a.slice());
+            return Math.max(...nextScoreList);
+        });
+        const maxScore = Math.max(...nextScores, ...scorelist);
+        return poslist.filter((_pos, idx) => scorelist[idx] === maxScore || nextScores[idx] === maxScore);
     }
     selectdest() {
         let bestlist = this.getbestlist();
@@ -84,68 +148,6 @@ class AI {
         }
         return toexecute;
     }
-    /**
-     * Drop tetromino from all rotations and columns to get all final positions
-     */
-    getendpositions() {
-        let poslist = [];
-        let tetlist = [this.board.curtetromino.copy()];
-        if (!this.board.heldtetromino) {
-            tetlist.push(this.board.nexttetromino.copy());
-        }
-        else {
-            tetlist.push(this.board.heldtetromino.copy());
-        }
-        for (let temptetidx of [0, 1]) {
-            let temptet = tetlist[temptetidx];
-            if (temptet) {
-                temptet = temptet.copy();
-            }
-            else {
-                continue;
-            }
-            let orig_c = temptet.c;
-            for (let currot = 0; currot < 4; currot++) {
-                for (let c = -2; c < CONFIG.cols; c++) {
-                    temptet.r = -1;
-                    temptet.c = c;
-                    if (this.board.isValid(temptet, 0, 0)) {
-                        let potential = this.getpotential(temptet);
-                        let stepsequence = [];
-                        // Hold
-                        if (temptetidx === 1) {
-                            stepsequence.push("H");
-                        }
-                        // Rotations
-                        if (currot <= 2) {
-                            for (let _rot = 0; _rot < currot; _rot++) {
-                                stepsequence.push("C");
-                            }
-                        }
-                        else {
-                            stepsequence.push("c");
-                        }
-                        // Movement
-                        let total_dc = potential.tet.c - orig_c;
-                        let dc_dir = Math.sign(total_dc);
-                        for (let dc = 0; Math.abs(dc) < Math.abs(total_dc); dc += dc_dir) {
-                            if (dc_dir === -1) {
-                                stepsequence.push("L");
-                            }
-                            else if (dc_dir === 1) {
-                                stepsequence.push("R");
-                            }
-                        }
-                        potential.steps.set(0, stepsequence);
-                        potential.steps.get(0).push("d");
-                        poslist.push(potential);
-                    }
-                }
-                temptet.shape = temptet.getRotation(Rotation.CLOCKWISE);
-            }
-        }
-        return poslist;
-    }
     getpotential(tet) {
         let prevarr = this.board.arr.map(a => a.slice());
         let finaltet = this.board.getGhost(tet);
@@ -159,6 +161,128 @@ class AI {
             arr: curarr,
             tet: finaltet
         };
+    }
+    /**
+     * Run BFS to find a list of all possible end positions,
+     * with the shortest paths to get there.
+     */
+    bfsendpositions(curTet, nextTet) {
+        const possibilities = [];
+        const visited = new Set();
+        const visited_dropped = new Set();
+        const cloneSteps = (steps) => {
+            const cloned = new Map();
+            steps.forEach((lst, idx) => {
+                cloned.set(idx, lst.slice());
+            });
+            return cloned;
+        };
+        const pushStep = (steps, row, step) => {
+            var _a;
+            if (steps.has(row)) {
+                (_a = steps.get(row)) === null || _a === void 0 ? void 0 : _a.push(step);
+            }
+            else {
+                steps.set(row, [step]);
+            }
+        };
+        const queue = [{ cur: curTet.copy(), prevSteps: new Map() }];
+        // add alternate start
+        if (nextTet != undefined) {
+            const holdSteps = new Map();
+            holdSteps.set(-999, [AIStep.HOLD]);
+            queue.push({ cur: nextTet.copy(), prevSteps: holdSteps });
+        }
+        // breadth-first search for all possible end positions
+        while (queue.length > 0) {
+            const { cur, prevSteps } = queue.shift();
+            // drop
+            const dropped = this.board.getGhost(cur);
+            if (!visited_dropped.has(dropped.toString()) && this.board.isValid(dropped, 0, 0)) {
+                // haven't already tried dropping the tetromino here
+                const finalSteps = cloneSteps(prevSteps);
+                pushStep(finalSteps, cur.r, AIStep.DROP);
+                visited_dropped.add(dropped.toString());
+                // visited.set(dropped.toString(), countSteps(finalSteps));
+                // place on board and save steps
+                const prevArr = this.board.arr.map(a => a.slice());
+                this.board.place(dropped);
+                const curArr = this.board.arr;
+                this.board.arr = prevArr;
+                const potential = {
+                    arr: curArr,
+                    row: dropped.r,
+                    col: dropped.c,
+                    steps: finalSteps,
+                    tet: dropped
+                };
+                possibilities.push(potential);
+            }
+            // rotations
+            for (let rotation of [Rotation.CLOCKWISE, Rotation.COUNTERCLOCKWISE]) {
+                const step = rotation === Rotation.CLOCKWISE ? AIStep.CLOCKWISE : AIStep.COUNTERCLOCKWISE;
+                const rotateTet = cur.copy();
+                rotateTet.rotate(rotation);
+                if (this.board.isValid(rotateTet, 0, 0)) {
+                    // valid rotation
+                    let next = rotateTet.copy();
+                    if (!visited.has(next.toString())) {
+                        let nextSteps = cloneSteps(prevSteps);
+                        pushStep(nextSteps, cur.r, step);
+                        queue.push({ cur: next, prevSteps: nextSteps });
+                        visited.add(next.toString());
+                    }
+                    // attempt to rotate again
+                    rotateTet.rotate(rotation);
+                    if (this.board.isValid(rotateTet, 0, 0)) {
+                        // valid rotation
+                        next = rotateTet.copy();
+                        if (!visited.has(next.toString())) {
+                            let nextSteps = cloneSteps(prevSteps);
+                            pushStep(nextSteps, cur.r, step);
+                            pushStep(nextSteps, cur.r, step);
+                            queue.push({ cur: next, prevSteps: nextSteps });
+                            visited.add(next.toString());
+                        }
+                    }
+                }
+            }
+            // movement
+            if (this.board.isValid(cur, 0, -1)) {
+                // can move left
+                const next = cur.copy();
+                next.c -= 1;
+                if (!visited.has(next.toString())) {
+                    const nextSteps = cloneSteps(prevSteps);
+                    pushStep(nextSteps, cur.r, AIStep.LEFT);
+                    queue.push({ cur: next, prevSteps: nextSteps });
+                    visited.add(next.toString());
+                }
+            }
+            if (this.board.isValid(cur, 0, 1)) {
+                // can move right
+                const next = cur.copy();
+                next.c += 1;
+                if (!visited.has(next.toString())) {
+                    const nextSteps = cloneSteps(prevSteps);
+                    pushStep(nextSteps, cur.r, AIStep.RIGHT);
+                    queue.push({ cur: next, prevSteps: nextSteps });
+                    visited.add(next.toString());
+                }
+            }
+            if (this.board.isValid(cur, 1, 0)) {
+                // can move down
+                const next = cur.copy();
+                next.r += 1;
+                if (!visited.has(next.toString())) {
+                    const nextSteps = cloneSteps(prevSteps);
+                    pushStep(nextSteps, cur.r, AIStep.DOWN);
+                    queue.push({ cur: next, prevSteps: nextSteps });
+                    visited.add(next.toString());
+                }
+            }
+        }
+        return possibilities;
     }
     /**
      * Scores a potential end position
@@ -293,9 +417,9 @@ class Board {
         this.gameover = false;
     }
     refillBag() {
-        this.curbag = [new Tetromino("O", -2, 4)];
+        this.curbag = [new Tetromino("O", -2, 4, Rotation.SPAWN)];
         for (let kind of ["I", "J", "L", "S", "T", "Z"]) {
-            this.curbag.push(new Tetromino(kind, -2, 3));
+            this.curbag.push(new Tetromino(kind, -2, 3, Rotation.SPAWN));
         }
         this.curbag = shuffle(this.curbag);
     }
@@ -303,13 +427,13 @@ class Board {
         this.drawBoard();
         if (CONFIG.aienabled && ai.toexecute) {
             let aitarget = ai.toexecute.tet;
-            aitarget.draw(17);
+            aitarget.draw(CONFIG.aitarget_alpha);
         }
         else if (!CONFIG.aienabled && CONFIG.showhint) {
-            let possible = ai.getbestlist();
-            for (let pos of possible) {
-                pos.tet.draw(17);
+            if (ai.toexecute == null) {
+                ai.toexecute = ai.selectdest();
             }
+            ai.toexecute.tet.draw(CONFIG.hint_alpha);
         }
         this.curtetromino.draw();
         this.nexttetromino.drawat(1.5, CONFIG.cols + 2, 0.75);
@@ -317,7 +441,7 @@ class Board {
             this.heldtetromino.drawat(1.5, -2 - 3 * 0.75, 0.75);
         }
         if (!this.gameover) {
-            this.getGhost(this.curtetromino).draw(51);
+            this.getGhost(this.curtetromino).draw(CONFIG.ghost_alpha);
             if (!this.framesUntilDrop--) {
                 this.framesUntilDrop = CONFIG.dropframes;
                 if (this.isValid(this.curtetromino, 1, 0)) {
@@ -375,10 +499,10 @@ class Board {
      * Rotate tetromino if valid
      */
     rotate(tetromino, direction) {
-        let origshape = tetromino.shape.slice();
-        tetromino.shape = tetromino.getRotation(direction);
+        const origRotation = tetromino.rotation;
+        tetromino.rotate(direction);
         if (!this.isValid(tetromino, 0, 0)) {
-            tetromino.shape = origshape;
+            tetromino.rotation = origRotation;
         }
     }
     hold() {
@@ -404,9 +528,10 @@ class Board {
         this.hasheld = true;
     }
     isValid(tetromino, dr, dc) {
-        for (let tet_r = 0; tet_r < tetromino.shape.length; tet_r++) {
-            for (let tet_c = 0; tet_c < tetromino.shape[tet_r].length; tet_c++) {
-                if (!tetromino.shape[tet_r][tet_c])
+        const shape = tetromino.getShape();
+        for (let tet_r = 0; tet_r < shape.length; tet_r++) {
+            for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
+                if (!shape[tet_r][tet_c])
                     continue;
                 let board_r = tetromino.r + tet_r + dr;
                 let board_c = tetromino.c + tet_c + dc;
@@ -423,6 +548,7 @@ class Board {
         return true;
     }
     placeCurTetromino() {
+        ai.toexecute = null;
         this.place(this.curtetromino);
         this.checklineclears();
         this.curtetromino = this.nexttetromino;
@@ -441,26 +567,29 @@ class Board {
      * Place on board, with no checks
      */
     place(tetromino) {
-        for (let tet_r = 0; tet_r < tetromino.shape.length; tet_r++) {
-            for (let tet_c = 0; tet_c < tetromino.shape[tet_r].length; tet_c++) {
-                if (!tetromino.shape[tet_r][tet_c])
+        const shape = tetromino.getShape();
+        for (let tet_r = 0; tet_r < shape.length; tet_r++) {
+            for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
+                if (!shape[tet_r][tet_c])
                     continue;
                 if (tetromino.r + tet_r >= CONFIG.rows || tetromino.r + tet_r < 0 ||
                     tetromino.c + tet_c < 0 || tetromino.c + tet_c >= CONFIG.cols)
                     continue;
-                if (!this.arr[tetromino.r + tet_r][tetromino.c + tet_c]) {
+                if (this.arr[tetromino.r + tet_r][tetromino.c + tet_c] === 0) {
                     this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = color(TetrominoType[tetromino.kind].color);
                 }
                 else {
-                    throw Error("Invalid tetromino placement");
+                    throw Error(`Invalid tetromino (${tetromino.kind}) placement: is ${this.arr[tetromino.r + tet_r][tetromino.c + tet_c]} (${tetromino.r + tet_r}, ${tetromino.c + tet_c})`);
                 }
             }
         }
     }
-    checklineclears() {
+    checklineclears(updateStat = true) {
         for (let r = 0; r < CONFIG.rows; r++) {
             if (!this.arr[r].includes(0)) {
-                this.lineclears += 1;
+                if (updateStat) {
+                    this.lineclears += 1;
+                }
                 this.arr.splice(r, 1);
                 this.arr.splice(0, 0, Array(CONFIG.cols).fill(0));
             }
@@ -478,21 +607,27 @@ class Board {
 }
 var Rotation;
 (function (Rotation) {
-    Rotation[Rotation["CLOCKWISE"] = 0] = "CLOCKWISE";
-    Rotation[Rotation["COUNTERCLOCKWISE"] = 1] = "COUNTERCLOCKWISE";
+    Rotation[Rotation["SPAWN"] = 0] = "SPAWN";
+    Rotation[Rotation["CLOCKWISE"] = 1] = "CLOCKWISE";
+    Rotation[Rotation["FLIP"] = 2] = "FLIP";
+    Rotation[Rotation["COUNTERCLOCKWISE"] = 3] = "COUNTERCLOCKWISE";
 })(Rotation || (Rotation = {}));
+const rotateFromState = (state, rotation) => {
+    return (state + rotation) % 4;
+};
 class Tetromino {
     /**
      * Creates a tetromino object in arr coordinates
-     * @param kind Tetronimno name
-     * @param r    Topleft row relative to arr
-     * @param c    Topleft col relative to arr
+     * @param kind     Tetronimno name
+     * @param r        Topleft row relative to arr
+     * @param c        Topleft col relative to arr
+     * @param rotation current rotation value relative to spawn
      */
-    constructor(kind, r, c) {
+    constructor(kind, r, c, rotation) {
         this.kind = kind;
-        this.shape = TetrominoType[kind].shape;
         this.r = r;
         this.c = c;
+        this.rotation = rotation;
     }
     draw(alpha) {
         this.drawat(this.r, this.c, 1, alpha);
@@ -514,9 +649,10 @@ class Tetromino {
             if (this.kind === "O")
                 c += 0.375;
         }
-        for (let shape_r = 0; shape_r < this.shape.length; shape_r++) {
-            for (let shape_c = 0; shape_c < this.shape[shape_r].length; shape_c++) {
-                if (this.shape[shape_r][shape_c] && r + shape_r >= 0) {
+        const shape = this.getShape();
+        for (let shape_r = 0; shape_r < shape.length; shape_r++) {
+            for (let shape_c = 0; shape_c < shape[shape_r].length; shape_c++) {
+                if (shape[shape_r][shape_c] && r + shape_r >= 0) {
                     rect(CONFIG.board_tl.x + CONFIG.tilesize * c + CONFIG.tilesize * shape_c * scale, CONFIG.board_tl.y + CONFIG.tilesize * r + CONFIG.tilesize * shape_r * scale, CONFIG.tilesize * scale, CONFIG.tilesize * scale);
                 }
             }
@@ -525,29 +661,50 @@ class Tetromino {
     moveDown() {
         this.r += 1;
     }
+    getShape() {
+        return this.getRotation(Rotation.SPAWN);
+    }
     getRotation(direction) {
-        let newshape = Array(this.shape.length).fill(0).map(() => Array(this.shape[0].length).fill(0));
-        for (let r = 0; r < this.shape.length; r++) {
-            for (let c = 0; c < this.shape[r].length; c++) {
-                if (direction === Rotation.COUNTERCLOCKWISE) {
-                    newshape[r][c] = this.shape[c][this.shape[r].length - r - 1];
-                }
-                else if (direction === Rotation.CLOCKWISE) {
-                    newshape[r][c] = this.shape[this.shape.length - c - 1][r];
+        // copy shape
+        const shape = TetrominoType[this.kind].shape;
+        return this.getRotationFromShape(shape, rotateFromState(this.rotation, direction));
+    }
+    getRotationFromShape(shape, direction) {
+        if (direction === Rotation.SPAWN) {
+            return shape;
+        }
+        let newshape = shape.map(row => row.slice());
+        const size = shape.length;
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                switch (direction) {
+                    case Rotation.COUNTERCLOCKWISE:
+                        newshape[r][c] = shape[c][size - r - 1];
+                        break;
+                    case Rotation.CLOCKWISE:
+                        newshape[r][c] = shape[size - c - 1][r];
+                        break;
+                    case Rotation.FLIP:
+                        newshape[r][c] = shape[size - r - 1][size - c - 1];
+                        break;
                 }
             }
         }
         return newshape;
     }
     copy() {
-        let tetcopy = new Tetromino(this.kind, this.r, this.c);
-        tetcopy.shape = this.shape;
-        return tetcopy;
+        return new Tetromino(this.kind, this.r, this.c, this.rotation);
     }
     reset() {
-        this.shape = TetrominoType[this.kind].shape;
+        this.rotation = Rotation.SPAWN;
         this.r = -2;
         this.c = this.kind === "O" ? 4 : 3;
+    }
+    toString() {
+        return `${this.kind}/${this.r}/${this.c}/${this.rotation}`;
+    }
+    rotate(direction) {
+        this.rotation = rotateFromState(this.rotation, direction);
     }
 }
 /**
@@ -606,6 +763,9 @@ const CONFIG = {
     cols: 10,
     tilesize: 30,
     tetromino_stroke: 190,
+    ghost_alpha: 51,
+    aitarget_alpha: 100,
+    hint_alpha: 17,
     dropframes: 30,
     framerate: 30,
     aienabled: false,
@@ -621,7 +781,8 @@ const CONFIG = {
     weight_placementheight: 5,
     scaled_placementheight: true,
     exp_placementheight: 2,
-    weight_avgheightdiff: 75
+    weight_avgheightdiff: 75,
+    aiturnimprovement: 100
 };
 function toggleAI() {
     var _a, _b;
