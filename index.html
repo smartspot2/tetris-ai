@@ -2,20 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+          integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+          crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js"
+          integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k"
+          crossorigin="anonymous"></script>
   <!--  -----  p5js  -----  -->
   <script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script>
   <!--  Tetris config  -->
-  <script src="src/config.js"></script>
+<!--  <script src="src/config.js"></script>-->
   <!--  auxil js files -->
-  <script src="src/Tetromino.js"></script>
-  <script src="src/Board.js"></script>
-  <script src="src/AI.js"></script>
+<!--  <script src="src/Tetromino.ts"></script>-->
+<!--  <script src="src/Board.ts"></script>-->
+<!--  <script src="src/AI.ts"></script>-->
   <!--  main sketch  -->
-  <script src="src/sketch.js"></script>
+  <script defer src="build/build.js"></script>
   <!--  CSS  -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
+        integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
 
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css"/>
@@ -284,56 +289,6 @@
   <button class="btn btn-outline-secondary" id="replay-btn" onclick="resetBoard()" type="button">Play Again</button>
 </div>
 </body>
-<script type="text/javascript">
-    // Initialize settings
-    if (CONFIG.aienabled) {
-        document.getElementById('enable-ai-input').setAttribute('checked', '');
-        document.getElementById('ai-delay-input').removeAttribute('disabled');
-    }
-    if (CONFIG.showhint) document.getElementById('show-hint-input').setAttribute('checked', '');
-    document.getElementById('ai-delay-input').value = CONFIG.aidelay;
-    document.getElementById('frame-rate-input').value = CONFIG.framerate;
-    document.getElementById('drop-frames-input').value = CONFIG.dropframes;
-    document.getElementById('weight-line-clears').value = CONFIG.weight_lineclears;
-    document.getElementById('weight-holes').value = CONFIG.weight_holes;
-    document.getElementById('weight-board-height').value = CONFIG.weight_boardheight;
-    document.getElementById('weight-placement-height').value = CONFIG.weight_placementheight;
-    document.getElementById('weight-avg-height-diff').value = CONFIG.weight_avgheightdiff;
-    if (CONFIG.scaled_holes) {
-        document.getElementById('scaled-holes').setAttribute('checked', '');
-        document.getElementById('exp-holes').removeAttribute('disabled');
-    }
-    if (CONFIG.scaled_boardheight) {
-        document.getElementById('scaled-board-height').setAttribute('checked', '');
-        document.getElementById('exp-board-height').removeAttribute('disabled');
-    }
-    if (CONFIG.scaled_placementheight) {
-        document.getElementById('scaled-placement-height').setAttribute('checked', '');
-        document.getElementById('exp-placement-height').removeAttribute('disabled');
-    }
-    document.getElementById('exp-holes').value = CONFIG.exp_holes;
-    document.getElementById('exp-board-height').value = CONFIG.exp_boardheight;
-    document.getElementById('exp-placement-height').value = CONFIG.exp_placementheight;
-
-    // Disable default keyboard scrolling
-    window.addEventListener("keydown", function (e) {
-        if (!document.activeElement.className.includes('settings-number') && [32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
-            e.preventDefault();
-        }
-    }, false);
-
-    function toggleSettings(el) {
-        if (el.innerText.includes('Advanced')) {
-            document.getElementById('basic-settings').classList.add('collapsed');
-            document.getElementById('advanced-settings').classList.remove('collapsed');
-            document.getElementById('settings-content').classList.remove('collapsed');
-            el.innerText = 'Basic';
-        } else {
-            document.getElementById('basic-settings').classList.remove('collapsed');
-            document.getElementById('advanced-settings').classList.add('collapsed');
-            document.getElementById('settings-content').classList.add('collapsed');
-            el.innerText = 'Advanced';
-        }
-    }
+<script defer type="text/javascript">
 </script>
 </html>

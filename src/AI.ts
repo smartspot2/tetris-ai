@@ -1,0 +1,298 @@
+interface ExecuteType {
+  steps: Map<number, string[]>;
+  tet: Tetromino;
+  row: number;
+  col: number;
+  arr: (0 | p5.Color)[][];
+}
+
+interface StatisticsType {
+  lineclears: number;
+  totalholes: number;
+  scaledholes: number;
+  boardheight: number;
+  scaledboardheight: number;
+  placementheight: number;
+  scaledplacementheight: number;
+  avgheightdiff: number;
+}
+
+class AI {
+  toexecute: ExecuteType | null;
+  private framesuntilnext: number;
+  private board: Board;
+
+  constructor(board: Board) {
+    this.board = board;
+    this.toexecute = null;
+
+    this.framesuntilnext = CONFIG.aidelay;
+  }
+
+  getHint() {
+    return this.selectdest().tet;
+  }
+
+  aistep() {
+    if (!CONFIG.aienabled) {
+      this.toexecute = null;
+      return;
+    }
+    if (!this.toexecute) {
+      this.toexecute = this.selectdest();
+      displayScore(this.toexecute);
+    }
+    if (this.framesuntilnext-- > 0) {
+      return;
+    }
+    this.framesuntilnext = CONFIG.aidelay;
+
+    // only execute subsections <= current row position (+1 to account for above the board)
+    let curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curtetromino.r + 1;
+    let nextstep = null;
+    let nextstepnumber = -1;
+    for (let [idx, step] of this.toexecute.steps.entries()) {
+      if (step.length > 0 && Number(idx) <= curstepnumber) {
+        nextstep = step;
+        nextstepnumber = idx;
+        break;
+      }
+    }
+    if (nextstep == null || nextstepnumber == -1) return;
+    let cmd = nextstep.shift();
+    switch (cmd) {
+      case "R":
+        this.board.move(this.board.curtetromino, 0, 1);
+        break;
+      case "L":
+        this.board.move(this.board.curtetromino, 0, -1);
+        break;
+      case "d":
+        this.board.moveDrop(this.board.curtetromino);
+        break;
+      case "C":
+        this.board.rotate(this.board.curtetromino, Rotation.CLOCKWISE);
+        break;
+      case "c":
+        this.board.rotate(this.board.curtetromino, Rotation.COUNTERCLOCKWISE);
+        break;
+      case "H":
+        this.board.hold();
+        break;
+    }
+    if (nextstep.length === 0) {
+      this.toexecute.steps.delete(nextstepnumber);
+    }
+    if (this.toexecute.steps.size === 0) {
+      this.toexecute = null;
+    }
+    // Recurse to do all steps if aidelay = -1
+    if (this.toexecute && CONFIG.aidelay === -1) this.aistep();
+  }
+
+  getbestlist() {
+    let poslist = this.getendpositions();
+    let scorelist = poslist.map(pos => this.getscore(pos));
+    let maxScore = Math.max(...scorelist);
+    return poslist.filter((pos, idx) => scorelist[idx] === maxScore);
+  }
+
+  selectdest() {
+    let bestlist = this.getbestlist();
+    let toexecute: ExecuteType;
+    if (bestlist.length === 1) {
+      toexecute = bestlist[0];
+    } else {
+      // For now, randomly select out of best
+      let randindex = Math.floor(Math.random() * Math.floor(bestlist.length));
+      toexecute = bestlist[randindex];
+    }
+
+    return toexecute;
+  }
+
+  /**
+   * Drop tetromino from all rotations and columns to get all final positions
+   */
+  getendpositions() {
+    let poslist = [];
+    let tetlist = [this.board.curtetromino.copy()];
+    if (!this.board.heldtetromino) {
+      tetlist.push(this.board.nexttetromino.copy());
+    } else {
+      tetlist.push(this.board.heldtetromino.copy());
+    }
+    for (let temptetidx of [0, 1]) {
+      let temptet = tetlist[temptetidx];
+      if (temptet) {
+        temptet = temptet.copy();
+      } else {
+        continue;
+      }
+      let orig_c = temptet.c;
+      for (let currot = 0; currot < 4; currot++) {
+        for (let c = -2; c < CONFIG.cols; c++) {
+          temptet.r = -1;
+          temptet.c = c;
+          if (this.board.isValid(temptet, 0, 0)) {
+            let potential = this.getpotential(temptet);
+            let stepsequence = [];
+            // Hold
+            if (temptetidx === 1) {
+              stepsequence.push("H");
+            }
+            // Rotations
+            if (currot <= 2) {
+              for (let _rot = 0; _rot < currot; _rot++) {
+                stepsequence.push("C");
+              }
+            } else {
+              stepsequence.push("c");
+            }
+            // Movement
+            let total_dc = potential.tet.c - orig_c;
+            let dc_dir = Math.sign(total_dc);
+            for (let dc = 0; Math.abs(dc) < Math.abs(total_dc); dc += dc_dir) {
+              if (dc_dir === -1) {
+                stepsequence.push("L");
+              } else if (dc_dir === 1) {
+                stepsequence.push("R");
+              }
+            }
+            potential.steps.set(0, stepsequence);
+            potential.steps.get(0)!.push("d");
+            poslist.push(potential);
+          }
+        }
+        temptet.shape = temptet.getRotation(Rotation.CLOCKWISE);
+      }
+    }
+    return poslist;
+  }
+
+  getpotential(tet: Tetromino): ExecuteType {
+    let prevarr = this.board.arr.map(a => a.slice());
+    let finaltet = this.board.getGhost(tet);
+    this.board.place(finaltet);
+    let curarr = this.board.arr.map(a => a.slice());
+    this.board.arr = prevarr;
+    return {
+      steps: new Map(),
+      row: finaltet.r,
+      col: finaltet.c,
+      arr: curarr,
+      tet: finaltet
+    };
+  }
+
+  /**
+   * Scores a potential end position
+   */
+  getscore(potential: ExecuteType) {
+    let score = 0;
+    let stats = this.getstatistics(potential);
+    // check line clears
+    score += CONFIG.weight_lineclears * stats.lineclears;
+    // penalize holes
+    if (CONFIG.scaled_holes) {
+      score -= CONFIG.weight_holes * stats.scaledholes;
+    } else {
+      score -= CONFIG.weight_holes * stats.totalholes;
+    }
+    // penalize height
+    if (CONFIG.scaled_boardheight) {
+      score -= CONFIG.weight_boardheight * stats.scaledboardheight;
+    } else {
+      score -= CONFIG.weight_boardheight * stats.boardheight;
+    }
+    // penalize placement height
+    if (CONFIG.scaled_placementheight) {
+      score -= CONFIG.weight_placementheight * stats.scaledplacementheight;
+    } else {
+      score -= CONFIG.weight_placementheight * stats.placementheight;
+    }
+    // penalize wells
+    score -= CONFIG.weight_avgheightdiff * stats.avgheightdiff;
+    return score;
+  }
+
+  getstatistics(potential: ExecuteType) {
+    let stats: StatisticsType = {} as StatisticsType;
+    let arr = potential.arr;
+    // line clears
+    stats.lineclears = 0;
+    for (let r = 0; r < CONFIG.rows; r++) {
+      if (!arr[r].includes(0)) {
+        stats.lineclears += 1;
+      }
+    }
+    // holes
+    stats.totalholes = stats.scaledholes = 0;
+    for (let c = 0; c < CONFIG.cols; c++) {
+      let firsttile = arr.findIndex(row => row[c] !== 0);
+      if (firsttile === -1) continue;
+      let numholes = 0;
+      for (let r = firsttile; r < CONFIG.rows; r++) {
+        if (arr[r][c] === 0) {
+          numholes++;
+          stats.totalholes++;
+        }
+      }
+      stats.scaledholes += Math.pow(numholes, CONFIG.exp_holes);
+    }
+    // board height
+    let firstrowwithtile = arr.findIndex(row => !row.every(item => item === 0));
+    stats.boardheight = CONFIG.rows - firstrowwithtile;
+    stats.scaledboardheight = Math.pow(stats.boardheight, CONFIG.exp_boardheight);
+    // placement height
+    stats.placementheight = CONFIG.rows - potential.row;
+    stats.scaledplacementheight = Math.pow(CONFIG.rows - potential.row, CONFIG.exp_placementheight);
+    // height distribution
+    let heights = [];
+    for (let c = 0; c < CONFIG.cols; c++) {
+      let ht = arr.findIndex(row => row[c] !== 0);
+      if (ht === -1) {
+        heights.push(0);
+      } else {
+        heights.push(CONFIG.rows - ht);
+      }
+    }
+    let sumheightdiffs = 0;
+    for (let c = 1; c < CONFIG.cols; c++) {
+      sumheightdiffs += Math.abs(heights[c] - heights[c - 1]);
+    }
+    stats.avgheightdiff = sumheightdiffs / (CONFIG.cols - 1);
+    return stats;
+  }
+}
+
+function displayScore(potential: ExecuteType) {
+  let HTMLscore = document.getElementById("stats-current-score")!;
+  let HTMLlineclears = document.getElementById("stats-line-clears")!;
+  let HTMLlineclearscalc = document.getElementById("stats-line-clears-calc")!;
+  let HTMLholes = document.getElementById("stats-holes")!;
+  let HTMLholescalc = document.getElementById("stats-holes-calc")!;
+  let HTMLboardheight = document.getElementById("stats-board-height")!;
+  let HTMLboardheightcalc = document.getElementById("stats-board-height-calc")!;
+  let HTMLplacementheight = document.getElementById("stats-placement-height")!;
+  let HTMLplacementheightcalc = document.getElementById("stats-placement-height-calc")!;
+  let HTMLavgheightdiff = document.getElementById("stats-avg-height-diff")!;
+  let HTMLavgheightdiffcalc = document.getElementById("stats-avg-height-diff-calc")!;
+  let score = ai.getscore(potential);
+  let stats = ai.getstatistics(potential);
+  HTMLscore.innerHTML = ((score < 0) ? "" : "&nbsp;") + (Math.round(score * 100) / 100);
+  HTMLlineclears.innerHTML = String(stats.lineclears);
+  HTMLlineclearscalc.innerHTML = String(Math.round(CONFIG.weight_lineclears * stats.lineclears * 100) / 100);
+  HTMLholes.innerHTML = String(Math.round((CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
+  HTMLholescalc.innerHTML = String(Math.round(-CONFIG.weight_holes *
+    (CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
+  HTMLboardheight.innerHTML = String(Math.round(stats.boardheight * 100) / 100);
+  HTMLboardheightcalc.innerHTML = String(Math.round(-CONFIG.weight_boardheight *
+    (CONFIG.scaled_boardheight ? stats.scaledboardheight : stats.boardheight) * 100) / 100);
+  HTMLplacementheight.innerHTML = String(Math.round(stats.placementheight * 100) / 100);
+  HTMLplacementheightcalc.innerHTML = String(Math.round(-CONFIG.weight_placementheight *
+    (CONFIG.scaled_placementheight ? stats.scaledplacementheight : stats.placementheight) * 100) / 100);
+  HTMLavgheightdiff.innerHTML = String(Math.round(stats.avgheightdiff * 100) / 100);
+  HTMLavgheightdiffcalc.innerHTML = String(
+    Math.round(-CONFIG.weight_avgheightdiff * stats.avgheightdiff * 100) / 100);
+}
