@@ -63,7 +63,7 @@ const MINSETTINGS = {
 };
 
 function changeSetting(el: HTMLInputElement, setting: keyof typeof MINSETTINGS) {
-  let val = Number(el.value);
+  const val = Number(el.value);
   if (isNaN(val)) {
     el.value = String(CONFIG[setting]);
     return;
@@ -72,13 +72,15 @@ function changeSetting(el: HTMLInputElement, setting: keyof typeof MINSETTINGS) 
     el.value = String(MINSETTINGS[setting]);
   }
   CONFIG[setting] = Number(val);
-  if (setting === "framerate") frameRate(CONFIG.framerate);
+  if (setting === "framerate") {
+    frameRate(CONFIG.framerate);
+  }
   // console.info(setting + ' set to: ' + el.value);
   // Update statistics
-  if (CONFIG.aienabled && ai.toexecute) {
-    displayScore(ai.toexecute);
+  if (CONFIG.aienabled && ai.toExecute) {
+    displayScore(ai.toExecute);
   } else {
-    displayScore(ai.getpotential(board.curtetromino));
+    displayScore(ai.getPotential(board.curTetromino));
   }
 }
 
@@ -108,7 +110,9 @@ if (CONFIG.aienabled) {
   document.getElementById("enable-ai-input")!.setAttribute("checked", "");
   document.getElementById("ai-delay-input")!.removeAttribute("disabled");
 }
-if (CONFIG.showhint) document.getElementById("show-hint-input")!.setAttribute("checked", "");
+if (CONFIG.showhint) {
+  document.getElementById("show-hint-input")!.setAttribute("checked", "");
+}
 (document.getElementById("ai-delay-input")! as HTMLInputElement).value = String(CONFIG.aidelay);
 (document.getElementById("frame-rate-input")! as HTMLInputElement).value = String(CONFIG.framerate);
 (document.getElementById("drop-frames-input")! as HTMLInputElement).value = String(CONFIG.dropframes);

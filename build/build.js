@@ -12,107 +12,106 @@ var AIStep;
 class AI {
     constructor(board) {
         this.board = board;
-        this.toexecute = null;
-        this.framesuntilnext = CONFIG.aidelay;
-    }
-    getHint() {
-        return this.selectdest().tet;
+        this.toExecute = null;
+        this.framesUntilNext = CONFIG.aidelay;
     }
     aistep() {
         if (!CONFIG.aienabled) {
             return;
         }
-        if (!this.toexecute) {
-            this.toexecute = this.selectdest();
-            displayScore(this.toexecute);
+        if (!this.toExecute) {
+            this.toExecute = this.selectDest();
+            displayScore(this.toExecute);
         }
-        if (this.framesuntilnext-- > 0) {
+        if (this.framesUntilNext-- > 0) {
             return;
         }
-        this.framesuntilnext = CONFIG.aidelay;
+        this.framesUntilNext = CONFIG.aidelay;
         // only execute subsections <= current row position
-        let curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curtetromino.r;
-        let nextstep = null;
-        let nextstepnumber = 99;
-        for (let [idx, step] of this.toexecute.steps.entries()) {
+        const curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curTetromino.r;
+        let nextStep = null;
+        let nextStepNumber = 99;
+        for (const [idx, step] of this.toExecute.steps.entries()) {
             // get earliest
-            if (step.length > 0 && idx <= curstepnumber && idx <= nextstepnumber) {
-                nextstep = step;
-                nextstepnumber = idx;
+            if (step.length > 0 && idx <= curstepnumber && idx <= nextStepNumber) {
+                nextStep = step;
+                nextStepNumber = idx;
             }
         }
-        if (nextstep == null || nextstepnumber == 99)
+        if (nextStep == null || nextStepNumber === 99) {
             return;
-        let cmd = nextstep.shift();
+        }
+        const cmd = nextStep.shift();
         switch (cmd) {
             case AIStep.RIGHT:
-                this.board.move(this.board.curtetromino, 0, 1);
+                this.board.move(this.board.curTetromino, 0, 1);
                 break;
             case AIStep.LEFT:
-                this.board.move(this.board.curtetromino, 0, -1);
+                this.board.move(this.board.curTetromino, 0, -1);
                 break;
             case AIStep.DROP:
-                this.board.moveDrop(this.board.curtetromino);
+                this.board.moveDrop(this.board.curTetromino);
                 break;
             case AIStep.CLOCKWISE:
-                this.board.rotate(this.board.curtetromino, Rotation.CLOCKWISE);
+                this.board.rotate(this.board.curTetromino, Rotation.CLOCKWISE);
                 break;
             case AIStep.COUNTERCLOCKWISE:
-                this.board.rotate(this.board.curtetromino, Rotation.COUNTERCLOCKWISE);
+                this.board.rotate(this.board.curTetromino, Rotation.COUNTERCLOCKWISE);
                 break;
             case AIStep.DOWN:
                 // only move down if it's in the position to do so
-                if (this.board.curtetromino.r <= nextstepnumber) {
-                    this.board.move(this.board.curtetromino, 1, 0);
+                if (this.board.curTetromino.r <= nextStepNumber) {
+                    this.board.move(this.board.curTetromino, 1, 0);
                 }
                 break;
             case AIStep.HOLD:
                 this.board.hold();
                 break;
         }
-        if (this.toexecute !== null) {
-            if (nextstep.length === 0) {
-                this.toexecute.steps.delete(nextstepnumber);
+        if (this.toExecute !== null) {
+            if (nextStep.length === 0) {
+                this.toExecute.steps.delete(nextStepNumber);
             }
-            if (this.toexecute.steps.size === 0) {
-                this.toexecute = null;
+            if (this.toExecute.steps.size === 0) {
+                this.toExecute = null;
             }
             // Recurse to do all steps if aidelay = -1
-            if (CONFIG.aidelay === -1)
+            if (CONFIG.aidelay === -1) {
                 this.aistep();
+            }
         }
     }
     getbestlist() {
         // starting values of the current and next tetrominos
-        const curTet = this.board.curtetromino.copy();
+        const curTet = this.board.curTetromino.copy();
         let altTet, nextTet;
-        if (this.board.heldtetromino != null) {
-            altTet = this.board.heldtetromino.copy();
-            nextTet = this.board.nexttetromino.copy();
+        if (this.board.heldTetromino != null) {
+            altTet = this.board.heldTetromino.copy();
+            nextTet = this.board.nextTetromino.copy();
         }
         else {
-            altTet = this.board.nexttetromino.copy();
+            altTet = this.board.nextTetromino.copy();
             nextTet = undefined;
         }
         // get all possible end positions
-        let poslist = this.bfsendpositions(curTet.copy(), altTet.copy());
+        let posList = this.bfsEndPositions(curTet.copy(), altTet.copy());
         // filter to only the top 25%
-        let scorelist = poslist.map(pos => this.getscore(pos));
-        let sortedScoreList = scorelist.slice();
+        let scoreList = posList.map(pos => this.getScore(pos));
+        const sortedScoreList = scoreList.slice();
         sortedScoreList.sort((a, b) => b - a);
-        let cutoff = sortedScoreList[Math.floor(scorelist.length / 4)];
-        if (cutoff == sortedScoreList[0]) {
+        let cutoff = sortedScoreList[Math.floor(scoreList.length / 4)];
+        if (cutoff === sortedScoreList[0]) {
             cutoff -= 1; // include the top score if necessary
         }
-        poslist = poslist.filter((_pos, idx) => scorelist[idx] > cutoff);
-        scorelist = scorelist.filter(score => score > cutoff);
+        posList = posList.filter((_pos, idx) => scoreList[idx] > cutoff);
+        scoreList = scoreList.filter(score => score > cutoff);
         // bump previous; need to have a strict improvement to take the next
-        scorelist = scorelist.map(score => score + CONFIG.aiturnimprovement);
+        scoreList = scoreList.map(score => score + CONFIG.aiturnimprovement);
         // get all possible end positions for the next turn, for each one of the previous
         const prevArr = this.board.arr.map(a => a.slice());
-        const nextScores = poslist.map(pos => {
+        const nextScores = posList.map(pos => {
             this.board.place(pos.tet); // place the tetromino
-            this.board.checklineclears(false);
+            this.board.checkLineClears(false);
             let nextStart, nextAlt;
             if (nextTet === undefined) {
                 nextStart = pos.tet.kind === curTet.kind ? altTet.copy() : curTet.copy();
@@ -126,47 +125,47 @@ class AI {
                 nextStart = altTet.copy();
                 nextAlt = nextTet.copy();
             }
-            const nextPosList = this.bfsendpositions(nextStart, nextAlt); // get all next end positions
-            const nextScoreList = nextPosList.map(nextPos => this.getscore(nextPos));
+            const nextPosList = this.bfsEndPositions(nextStart, nextAlt); // get all next end positions
+            const nextScoreList = nextPosList.map(nextPos => this.getScore(nextPos));
             // restore the board
             this.board.arr = prevArr.map(a => a.slice());
             return Math.max(...nextScoreList);
         });
-        const maxScore = Math.max(...nextScores, ...scorelist);
-        return poslist.filter((_pos, idx) => scorelist[idx] === maxScore || nextScores[idx] === maxScore);
+        const maxScore = Math.max(...nextScores, ...scoreList);
+        return posList.filter((_pos, idx) => scoreList[idx] === maxScore || nextScores[idx] === maxScore);
     }
-    selectdest() {
-        let bestlist = this.getbestlist();
-        let toexecute;
-        if (bestlist.length === 1) {
-            toexecute = bestlist[0];
+    selectDest() {
+        const bestList = this.getbestlist();
+        let toExecute;
+        if (bestList.length === 1) {
+            toExecute = bestList[0];
         }
         else {
             // For now, randomly select out of best
-            let randindex = Math.floor(Math.random() * Math.floor(bestlist.length));
-            toexecute = bestlist[randindex];
+            const randIndex = Math.floor(Math.random() * Math.floor(bestList.length));
+            toExecute = bestList[randIndex];
         }
-        return toexecute;
+        return toExecute;
     }
-    getpotential(tet) {
-        let prevarr = this.board.arr.map(a => a.slice());
-        let finaltet = this.board.getGhost(tet);
-        this.board.place(finaltet);
-        let curarr = this.board.arr.map(a => a.slice());
-        this.board.arr = prevarr;
+    getPotential(tet) {
+        const prevArr = this.board.arr.map(a => a.slice());
+        const finalTet = this.board.getGhost(tet);
+        this.board.place(finalTet);
+        const curArr = this.board.arr.map(a => a.slice());
+        this.board.arr = prevArr;
         return {
             steps: new Map(),
-            row: finaltet.r,
-            col: finaltet.c,
-            arr: curarr,
-            tet: finaltet
+            row: finalTet.r,
+            col: finalTet.c,
+            arr: curArr,
+            tet: finalTet
         };
     }
     /**
      * Run BFS to find a list of all possible end positions,
      * with the shortest paths to get there.
      */
-    bfsendpositions(curTet, nextTet) {
+    bfsEndPositions(curTet, nextTet) {
         const possibilities = [];
         const visited = new Set();
         const visited_dropped = new Set();
@@ -188,7 +187,7 @@ class AI {
         };
         const queue = [{ cur: curTet.copy(), prevSteps: new Map() }];
         // add alternate start
-        if (nextTet != undefined) {
+        if (nextTet !== undefined) {
             const holdSteps = new Map();
             holdSteps.set(-999, [AIStep.HOLD]);
             queue.push({ cur: nextTet.copy(), prevSteps: holdSteps });
@@ -219,7 +218,7 @@ class AI {
                 possibilities.push(potential);
             }
             // rotations
-            for (let rotation of [Rotation.CLOCKWISE, Rotation.COUNTERCLOCKWISE]) {
+            for (const rotation of [Rotation.CLOCKWISE, Rotation.COUNTERCLOCKWISE]) {
                 const step = rotation === Rotation.CLOCKWISE ? AIStep.CLOCKWISE : AIStep.COUNTERCLOCKWISE;
                 const rotateTet = cur.copy();
                 rotateTet.rotate(rotation);
@@ -227,7 +226,7 @@ class AI {
                     // valid rotation
                     let next = rotateTet.copy();
                     if (!visited.has(next.toString())) {
-                        let nextSteps = cloneSteps(prevSteps);
+                        const nextSteps = cloneSteps(prevSteps);
                         pushStep(nextSteps, cur.r, step);
                         queue.push({ cur: next, prevSteps: nextSteps });
                         visited.add(next.toString());
@@ -238,7 +237,7 @@ class AI {
                         // valid rotation
                         next = rotateTet.copy();
                         if (!visited.has(next.toString())) {
-                            let nextSteps = cloneSteps(prevSteps);
+                            const nextSteps = cloneSteps(prevSteps);
                             pushStep(nextSteps, cur.r, step);
                             pushStep(nextSteps, cur.r, step);
                             queue.push({ cur: next, prevSteps: nextSteps });
@@ -287,9 +286,9 @@ class AI {
     /**
      * Scores a potential end position
      */
-    getscore(potential) {
+    getScore(potential) {
         let score = 0;
-        let stats = this.getstatistics(potential);
+        const stats = this.getStatistics(potential);
         // check line clears
         score += CONFIG.weight_lineclears * stats.lineclears;
         // penalize holes
@@ -317,9 +316,9 @@ class AI {
         score -= CONFIG.weight_avgheightdiff * stats.avgheightdiff;
         return score;
     }
-    getstatistics(potential) {
-        let stats = {};
-        let arr = potential.arr;
+    getStatistics(potential) {
+        const stats = {};
+        const arr = potential.arr;
         // line clears
         stats.lineclears = 0;
         for (let r = 0; r < CONFIG.rows; r++) {
@@ -328,31 +327,33 @@ class AI {
             }
         }
         // holes
-        stats.totalholes = stats.scaledholes = 0;
+        stats.totalholes = 0;
+        stats.scaledholes = 0;
         for (let c = 0; c < CONFIG.cols; c++) {
-            let firsttile = arr.findIndex(row => row[c] !== 0);
-            if (firsttile === -1)
+            const firstTile = arr.findIndex(row => row[c] !== 0);
+            if (firstTile === -1) {
                 continue;
-            let numholes = 0;
-            for (let r = firsttile; r < CONFIG.rows; r++) {
+            }
+            let numHoles = 0;
+            for (let r = firstTile; r < CONFIG.rows; r++) {
                 if (arr[r][c] === 0) {
-                    numholes++;
+                    numHoles++;
                     stats.totalholes++;
                 }
             }
-            stats.scaledholes += Math.pow(numholes, CONFIG.exp_holes);
+            stats.scaledholes += Math.pow(numHoles, CONFIG.exp_holes);
         }
         // board height
-        let firstrowwithtile = arr.findIndex(row => !row.every(item => item === 0));
-        stats.boardheight = CONFIG.rows - firstrowwithtile;
+        const firstRowWithTile = arr.findIndex(row => !row.every(item => item === 0));
+        stats.boardheight = CONFIG.rows - firstRowWithTile;
         stats.scaledboardheight = Math.pow(stats.boardheight, CONFIG.exp_boardheight);
         // placement height
         stats.placementheight = CONFIG.rows - potential.row;
         stats.scaledplacementheight = Math.pow(CONFIG.rows - potential.row, CONFIG.exp_placementheight);
         // height distribution
-        let heights = [];
+        const heights = [];
         for (let c = 0; c < CONFIG.cols; c++) {
-            let ht = arr.findIndex(row => row[c] !== 0);
+            const ht = arr.findIndex(row => row[c] !== 0);
             if (ht === -1) {
                 heights.push(0);
             }
@@ -360,28 +361,28 @@ class AI {
                 heights.push(CONFIG.rows - ht);
             }
         }
-        let sumheightdiffs = 0;
+        let sumHeightDiffs = 0;
         for (let c = 1; c < CONFIG.cols; c++) {
-            sumheightdiffs += Math.abs(heights[c] - heights[c - 1]);
+            sumHeightDiffs += Math.abs(heights[c] - heights[c - 1]);
         }
-        stats.avgheightdiff = sumheightdiffs / (CONFIG.cols - 1);
+        stats.avgheightdiff = sumHeightDiffs / (CONFIG.cols - 1);
         return stats;
     }
 }
 function displayScore(potential) {
-    let HTMLscore = document.getElementById("stats-current-score");
-    let HTMLlineclears = document.getElementById("stats-line-clears");
-    let HTMLlineclearscalc = document.getElementById("stats-line-clears-calc");
-    let HTMLholes = document.getElementById("stats-holes");
-    let HTMLholescalc = document.getElementById("stats-holes-calc");
-    let HTMLboardheight = document.getElementById("stats-board-height");
-    let HTMLboardheightcalc = document.getElementById("stats-board-height-calc");
-    let HTMLplacementheight = document.getElementById("stats-placement-height");
-    let HTMLplacementheightcalc = document.getElementById("stats-placement-height-calc");
-    let HTMLavgheightdiff = document.getElementById("stats-avg-height-diff");
-    let HTMLavgheightdiffcalc = document.getElementById("stats-avg-height-diff-calc");
-    let score = ai.getscore(potential);
-    let stats = ai.getstatistics(potential);
+    const HTMLscore = document.getElementById("stats-current-score");
+    const HTMLlineclears = document.getElementById("stats-line-clears");
+    const HTMLlineclearscalc = document.getElementById("stats-line-clears-calc");
+    const HTMLholes = document.getElementById("stats-holes");
+    const HTMLholescalc = document.getElementById("stats-holes-calc");
+    const HTMLboardheight = document.getElementById("stats-board-height");
+    const HTMLboardheightcalc = document.getElementById("stats-board-height-calc");
+    const HTMLplacementheight = document.getElementById("stats-placement-height");
+    const HTMLplacementheightcalc = document.getElementById("stats-placement-height-calc");
+    const HTMLavgheightdiff = document.getElementById("stats-avg-height-diff");
+    const HTMLavgheightdiffcalc = document.getElementById("stats-avg-height-diff-calc");
+    const score = ai.getScore(potential);
+    const stats = ai.getStatistics(potential);
     HTMLscore.innerHTML = ((score < 0) ? "" : "&nbsp;") + (Math.round(score * 100) / 100);
     HTMLlineclears.innerHTML = String(stats.lineclears);
     HTMLlineclearscalc.innerHTML = String(Math.round(CONFIG.weight_lineclears * stats.lineclears * 100) / 100);
@@ -399,53 +400,53 @@ function displayScore(potential) {
 }
 class Board {
     constructor(x, y, w, h) {
-        this.curbag = [];
+        this.curBag = [];
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
-        this.tilesize = this.w / 10;
+        this.tileSize = this.w / 10;
         this.arr = Array(CONFIG.rows).fill(0).map(() => Array(CONFIG.cols).fill(0));
         // Tetromino bag
         this.refillBag();
-        this.curtetromino = this.curbag.pop();
-        this.nexttetromino = this.curbag.pop();
-        this.heldtetromino = null;
+        this.curTetromino = this.curBag.pop();
+        this.nextTetromino = this.curBag.pop();
+        this.heldTetromino = null;
         this.framesUntilDrop = CONFIG.dropframes;
-        this.hasheld = false;
-        this.lineclears = 0;
-        this.gameover = false;
+        this.hasHeld = false;
+        this.lineClears = 0;
+        this.gameOver = false;
     }
     refillBag() {
-        this.curbag = [new Tetromino("O", -2, 4, Rotation.SPAWN)];
-        for (let kind of ["I", "J", "L", "S", "T", "Z"]) {
-            this.curbag.push(new Tetromino(kind, -2, 3, Rotation.SPAWN));
+        this.curBag = [new Tetromino("O", -2, 4, Rotation.SPAWN)];
+        for (const kind of ["I", "J", "L", "S", "T", "Z"]) {
+            this.curBag.push(new Tetromino(kind, -2, 3, Rotation.SPAWN));
         }
-        this.curbag = shuffle(this.curbag);
+        this.curBag = shuffle(this.curBag);
     }
     draw() {
         this.drawBoard();
-        if (CONFIG.aienabled && ai.toexecute) {
-            let aitarget = ai.toexecute.tet;
+        if (CONFIG.aienabled && ai.toExecute) {
+            const aitarget = ai.toExecute.tet;
             aitarget.draw(CONFIG.aitarget_alpha);
         }
         else if (!CONFIG.aienabled && CONFIG.showhint) {
-            if (ai.toexecute == null) {
-                ai.toexecute = ai.selectdest();
+            if (ai.toExecute == null) {
+                ai.toExecute = ai.selectDest();
             }
-            ai.toexecute.tet.draw(CONFIG.hint_alpha);
+            ai.toExecute.tet.draw(CONFIG.hint_alpha);
         }
-        this.curtetromino.draw();
-        this.nexttetromino.drawat(1.5, CONFIG.cols + 2, 0.75);
-        if (this.heldtetromino) {
-            this.heldtetromino.drawat(1.5, -2 - 3 * 0.75, 0.75);
+        this.curTetromino.draw();
+        this.nextTetromino.drawat(1.5, CONFIG.cols + 2, 0.75);
+        if (this.heldTetromino) {
+            this.heldTetromino.drawat(1.5, -2 - 3 * 0.75, 0.75);
         }
-        if (!this.gameover) {
-            this.getGhost(this.curtetromino).draw(CONFIG.ghost_alpha);
+        if (!this.gameOver) {
+            this.getGhost(this.curTetromino).draw(CONFIG.ghost_alpha);
             if (!this.framesUntilDrop--) {
                 this.framesUntilDrop = CONFIG.dropframes;
-                if (this.isValid(this.curtetromino, 1, 0)) {
-                    this.curtetromino.moveDown();
+                if (this.isValid(this.curTetromino, 1, 0)) {
+                    this.curTetromino.moveDown();
                 }
                 else {
                     this.placeCurTetromino();
@@ -469,7 +470,7 @@ class Board {
                 else {
                     noFill();
                 }
-                rect(this.x + this.tilesize * c, this.y + this.tilesize * r, this.tilesize, this.tilesize);
+                rect(this.x + this.tileSize * c, this.y + this.tileSize * r, this.tileSize, this.tileSize);
             }
         }
         noFill();
@@ -491,8 +492,8 @@ class Board {
         }
     }
     moveDrop(tetromino) {
-        let ghosttet = this.getGhost(tetromino);
-        this.curtetromino.r = ghosttet.r;
+        const ghostTet = this.getGhost(tetromino);
+        this.curTetromino.r = ghostTet.r;
         this.placeCurTetromino();
     }
     /**
@@ -506,41 +507,45 @@ class Board {
         }
     }
     hold() {
-        if (this.hasheld)
+        if (this.hasHeld) {
             return; // can't hold more than once
-        if (this.heldtetromino) {
-            let heldtype = this.heldtetromino.kind;
-            this.heldtetromino.kind = this.curtetromino.kind;
-            this.heldtetromino.reset();
-            this.curtetromino.kind = heldtype;
-            this.curtetromino.reset();
+        }
+        if (this.heldTetromino) {
+            const heldtype = this.heldTetromino.kind;
+            this.heldTetromino.kind = this.curTetromino.kind;
+            this.heldTetromino.reset();
+            this.curTetromino.kind = heldtype;
+            this.curTetromino.reset();
         }
         else {
-            this.heldtetromino = this.curtetromino;
-            this.heldtetromino.reset();
-            this.curtetromino = this.nexttetromino;
-            this.nexttetromino = this.curbag.pop();
-            if (!this.curbag.length) {
+            this.heldTetromino = this.curTetromino;
+            this.heldTetromino.reset();
+            this.curTetromino = this.nextTetromino;
+            this.nextTetromino = this.curBag.pop();
+            if (!this.curBag.length) {
                 this.refillBag();
             }
         }
         this.framesUntilDrop = 1;
-        this.hasheld = true;
+        this.hasHeld = true;
     }
     isValid(tetromino, dr, dc) {
         const shape = tetromino.getShape();
         for (let tet_r = 0; tet_r < shape.length; tet_r++) {
             for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
-                if (!shape[tet_r][tet_c])
+                if (!shape[tet_r][tet_c]) {
                     continue;
-                let board_r = tetromino.r + tet_r + dr;
-                let board_c = tetromino.c + tet_c + dc;
+                }
+                const board_r = tetromino.r + tet_r + dr;
+                const board_c = tetromino.c + tet_c + dc;
                 // No part of shape can be out of bounds
-                if (board_r >= CONFIG.rows || board_c < 0 || board_c >= CONFIG.cols)
+                if (board_r >= CONFIG.rows || board_c < 0 || board_c >= CONFIG.cols) {
                     return false;
-                if (board_r < 0)
-                    continue;
-                if (this.arr[board_r][board_c]) {
+                }
+                else if (board_r < 0) {
+                    // do nothing
+                }
+                else if (this.arr[board_r][board_c]) {
                     return false;
                 }
             }
@@ -548,19 +553,19 @@ class Board {
         return true;
     }
     placeCurTetromino() {
-        ai.toexecute = null;
-        this.place(this.curtetromino);
-        this.checklineclears();
-        this.curtetromino = this.nexttetromino;
-        this.nexttetromino = this.curbag.pop();
-        if (!this.curbag.length) {
+        ai.toExecute = null;
+        this.place(this.curTetromino);
+        this.checkLineClears();
+        this.curTetromino = this.nextTetromino;
+        this.nextTetromino = this.curBag.pop();
+        if (!this.curBag.length) {
             this.refillBag();
         }
         this.framesUntilDrop = 1;
-        this.hasheld = false; // can hold again
+        this.hasHeld = false; // can hold again
         // Check validity of new tetromino/check for gameover
-        if (this.getGhost(this.curtetromino).r === this.curtetromino.r) {
-            this.gameover = true;
+        if (this.getGhost(this.curTetromino).r === this.curTetromino.r) {
+            this.gameOver = true;
         }
     }
     /**
@@ -570,25 +575,29 @@ class Board {
         const shape = tetromino.getShape();
         for (let tet_r = 0; tet_r < shape.length; tet_r++) {
             for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
-                if (!shape[tet_r][tet_c])
+                if (!shape[tet_r][tet_c]) {
                     continue;
-                if (tetromino.r + tet_r >= CONFIG.rows || tetromino.r + tet_r < 0 ||
-                    tetromino.c + tet_c < 0 || tetromino.c + tet_c >= CONFIG.cols)
+                }
+                if (tetromino.r + tet_r >= CONFIG.rows || tetromino.r + tet_r < 0
+                    || tetromino.c + tet_c < 0 || tetromino.c + tet_c >= CONFIG.cols) {
                     continue;
+                }
                 if (this.arr[tetromino.r + tet_r][tetromino.c + tet_c] === 0) {
                     this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = color(TetrominoType[tetromino.kind].color);
                 }
                 else {
-                    throw Error(`Invalid tetromino (${tetromino.kind}) placement: is ${this.arr[tetromino.r + tet_r][tetromino.c + tet_c]} (${tetromino.r + tet_r}, ${tetromino.c + tet_c})`);
+                    throw Error(`Invalid tetromino (${tetromino.kind}) placement:`
+                        + `is ${this.arr[tetromino.r + tet_r][tetromino.c + tet_c]}`
+                        + `(${tetromino.r + tet_r}, ${tetromino.c + tet_c})`);
                 }
             }
         }
     }
-    checklineclears(updateStat = true) {
+    checkLineClears(updateStat = true) {
         for (let r = 0; r < CONFIG.rows; r++) {
             if (!this.arr[r].includes(0)) {
                 if (updateStat) {
-                    this.lineclears += 1;
+                    this.lineClears += 1;
                 }
                 this.arr.splice(r, 1);
                 this.arr.splice(0, 0, Array(CONFIG.cols).fill(0));
@@ -600,9 +609,9 @@ class Board {
         while (tetromino.r + dr < this.arr.length && this.isValid(tetromino, dr, 0)) {
             dr++;
         }
-        let tetcopy = tetromino.copy();
-        tetcopy.r += dr - 1;
-        return tetcopy;
+        const tetCopy = tetromino.copy();
+        tetCopy.r += dr - 1;
+        return tetCopy;
     }
 }
 var Rotation;
@@ -633,7 +642,7 @@ class Tetromino {
         this.drawat(this.r, this.c, 1, alpha);
     }
     drawat(r, c, scale, alpha) {
-        let tetColor = TetrominoType[this.kind].color;
+        const tetColor = TetrominoType[this.kind].color;
         stroke(CONFIG.tetromino_stroke);
         if (alpha) {
             const colorWithAlpha = color(tetColor);
@@ -644,10 +653,12 @@ class Tetromino {
             fill(tetColor);
         }
         if (scale === 0.75) {
-            if (this.kind === "I")
+            if (this.kind === "I") {
                 c -= 0.375;
-            if (this.kind === "O")
+            }
+            if (this.kind === "O") {
                 c += 0.375;
+            }
         }
         const shape = this.getShape();
         for (let shape_r = 0; shape_r < shape.length; shape_r++) {
@@ -673,24 +684,24 @@ class Tetromino {
         if (direction === Rotation.SPAWN) {
             return shape;
         }
-        let newshape = shape.map(row => row.slice());
+        const newShape = shape.map(row => row.slice());
         const size = shape.length;
         for (let r = 0; r < size; r++) {
             for (let c = 0; c < size; c++) {
                 switch (direction) {
                     case Rotation.COUNTERCLOCKWISE:
-                        newshape[r][c] = shape[c][size - r - 1];
+                        newShape[r][c] = shape[c][size - r - 1];
                         break;
                     case Rotation.CLOCKWISE:
-                        newshape[r][c] = shape[size - c - 1][r];
+                        newShape[r][c] = shape[size - c - 1][r];
                         break;
                     case Rotation.FLIP:
-                        newshape[r][c] = shape[size - r - 1][size - c - 1];
+                        newShape[r][c] = shape[size - r - 1][size - c - 1];
                         break;
                 }
             }
         }
-        return newshape;
+        return newShape;
     }
     copy() {
         return new Tetromino(this.kind, this.r, this.c, this.rotation);
@@ -814,7 +825,7 @@ const MINSETTINGS = {
     exp_placementheight: 0
 };
 function changeSetting(el, setting) {
-    let val = Number(el.value);
+    const val = Number(el.value);
     if (isNaN(val)) {
         el.value = String(CONFIG[setting]);
         return;
@@ -823,15 +834,16 @@ function changeSetting(el, setting) {
         el.value = String(MINSETTINGS[setting]);
     }
     CONFIG[setting] = Number(val);
-    if (setting === "framerate")
+    if (setting === "framerate") {
         frameRate(CONFIG.framerate);
+    }
     // console.info(setting + ' set to: ' + el.value);
     // Update statistics
-    if (CONFIG.aienabled && ai.toexecute) {
-        displayScore(ai.toexecute);
+    if (CONFIG.aienabled && ai.toExecute) {
+        displayScore(ai.toExecute);
     }
     else {
-        displayScore(ai.getpotential(board.curtetromino));
+        displayScore(ai.getPotential(board.curTetromino));
     }
 }
 function toggleScaled(setting) {
@@ -857,8 +869,9 @@ if (CONFIG.aienabled) {
     document.getElementById("enable-ai-input").setAttribute("checked", "");
     document.getElementById("ai-delay-input").removeAttribute("disabled");
 }
-if (CONFIG.showhint)
+if (CONFIG.showhint) {
     document.getElementById("show-hint-input").setAttribute("checked", "");
+}
 document.getElementById("ai-delay-input").value = String(CONFIG.aidelay);
 document.getElementById("frame-rate-input").value = String(CONFIG.framerate);
 document.getElementById("drop-frames-input").value = String(CONFIG.dropframes);
@@ -906,7 +919,7 @@ function toggleSettings(el) {
 let board;
 let ai;
 function setup() {
-    let canvas = createCanvas(800, 800);
+    const canvas = createCanvas(800, 800);
     canvas.parent("sketch");
     frameRate(CONFIG.framerate);
     CONFIG.board_tl = { x: 0.5 * (width - CONFIG.board_w), y: 0.5 * (height - CONFIG.board_h) };
@@ -918,11 +931,11 @@ function draw() {
     noStroke();
     textAlign(CENTER, CENTER);
     textSize(24);
-    text(`Lines cleared: ${board.lineclears}`, width / 2, 50);
+    text(`Lines cleared: ${board.lineClears}`, width / 2, 50);
     textSize(20);
     text("Next", width / 2 + 242, 110);
     text("Hold", width / 2 - 241, 110);
-    if (board.gameover) {
+    if (board.gameOver) {
         textSize(28);
         text("Game Over", width / 2, height - 60);
         document.getElementById("replay-btn").style.visibility = "visible";
@@ -933,31 +946,32 @@ function draw() {
 function keyPressed() {
     var _a;
     // Disabled if focused on settings
-    if ((_a = document.activeElement) === null || _a === void 0 ? void 0 : _a.classList.contains("settings-number"))
+    if ((_a = document.activeElement) === null || _a === void 0 ? void 0 : _a.classList.contains("settings-number")) {
         return;
+    }
     if (keyCode === LEFT_ARROW) {
-        board.move(board.curtetromino, 0, -1);
+        board.move(board.curTetromino, 0, -1);
     }
     else if (keyCode === RIGHT_ARROW) {
-        board.move(board.curtetromino, 0, 1);
+        board.move(board.curTetromino, 0, 1);
     }
     else if (key === " ") {
-        board.moveDrop(board.curtetromino);
+        board.moveDrop(board.curTetromino);
     }
     else if (keyCode === DOWN_ARROW) {
-        board.move(board.curtetromino, 1, 0);
+        board.move(board.curTetromino, 1, 0);
     }
     else if (keyCode === UP_ARROW) {
-        board.rotate(board.curtetromino, Rotation.CLOCKWISE);
+        board.rotate(board.curTetromino, Rotation.CLOCKWISE);
     }
     else if (key === "z") {
-        board.rotate(board.curtetromino, Rotation.COUNTERCLOCKWISE);
+        board.rotate(board.curTetromino, Rotation.COUNTERCLOCKWISE);
     }
     else if (keyCode === SHIFT) {
         board.hold();
     }
     if (!CONFIG.aienabled) {
-        displayScore(ai.getpotential(board.curtetromino));
+        displayScore(ai.getPotential(board.curTetromino));
     }
 }
 function resetBoard() {

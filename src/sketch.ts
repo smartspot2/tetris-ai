@@ -2,7 +2,7 @@ let board: Board;
 let ai: AI;
 
 function setup() {
-  let canvas = createCanvas(800, 800);
+  const canvas = createCanvas(800, 800);
   canvas.parent("sketch");
 
   frameRate(CONFIG.framerate);
@@ -19,12 +19,12 @@ function draw() {
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(24);
-  text(`Lines cleared: ${board.lineclears}`, width / 2, 50);
+  text(`Lines cleared: ${board.lineClears}`, width / 2, 50);
   textSize(20);
   text("Next", width / 2 + 242, 110);
   text("Hold", width / 2 - 241, 110);
 
-  if (board.gameover) {
+  if (board.gameOver) {
     textSize(28);
     text("Game Over", width / 2, height - 60);
     document.getElementById("replay-btn")!.style.visibility = "visible";
@@ -35,25 +35,27 @@ function draw() {
 
 function keyPressed() {
   // Disabled if focused on settings
-  if (document.activeElement?.classList.contains("settings-number")) return;
+  if (document.activeElement?.classList.contains("settings-number")) {
+    return;
+  }
   if (keyCode === LEFT_ARROW) {
-    board.move(board.curtetromino, 0, -1);
+    board.move(board.curTetromino, 0, -1);
   } else if (keyCode === RIGHT_ARROW) {
-    board.move(board.curtetromino, 0, 1);
+    board.move(board.curTetromino, 0, 1);
   } else if (key === " ") {
-    board.moveDrop(board.curtetromino);
+    board.moveDrop(board.curTetromino);
   } else if (keyCode === DOWN_ARROW) {
-    board.move(board.curtetromino, 1, 0);
+    board.move(board.curTetromino, 1, 0);
   } else if (keyCode === UP_ARROW) {
-    board.rotate(board.curtetromino, Rotation.CLOCKWISE);
+    board.rotate(board.curTetromino, Rotation.CLOCKWISE);
   } else if (key === "z") {
-    board.rotate(board.curtetromino, Rotation.COUNTERCLOCKWISE);
+    board.rotate(board.curTetromino, Rotation.COUNTERCLOCKWISE);
   } else if (keyCode === SHIFT) {
     board.hold();
   }
 
   if (!CONFIG.aienabled) {
-    displayScore(ai.getpotential(board.curtetromino));
+    displayScore(ai.getPotential(board.curTetromino));
   }
 }
 

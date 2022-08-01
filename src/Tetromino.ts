@@ -34,7 +34,7 @@ class Tetromino {
   }
 
   drawat(r: number, c: number, scale: number, alpha?: number): void {
-    let tetColor = TetrominoType[this.kind].color;
+    const tetColor = TetrominoType[this.kind].color;
     stroke(CONFIG.tetromino_stroke);
     if (alpha) {
       const colorWithAlpha = color(tetColor);
@@ -44,8 +44,12 @@ class Tetromino {
       fill(tetColor);
     }
     if (scale === 0.75) {
-      if (this.kind === "I") c -= 0.375;
-      if (this.kind === "O") c += 0.375;
+      if (this.kind === "I") {
+        c -= 0.375;
+      }
+      if (this.kind === "O") {
+        c += 0.375;
+      }
     }
     const shape = this.getShape();
     for (let shape_r = 0; shape_r < shape.length; shape_r++) {
@@ -78,24 +82,24 @@ class Tetromino {
       return shape;
     }
 
-    let newshape: number[][] = shape.map(row => row.slice());
+    const newShape: number[][] = shape.map(row => row.slice());
     const size = shape.length;
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         switch (direction) {
           case Rotation.COUNTERCLOCKWISE:
-            newshape[r][c] = shape[c][size - r - 1];
+            newShape[r][c] = shape[c][size - r - 1];
             break;
           case Rotation.CLOCKWISE:
-            newshape[r][c] = shape[size - c - 1][r];
+            newShape[r][c] = shape[size - c - 1][r];
             break;
           case Rotation.FLIP:
-            newshape[r][c] = shape[size - r - 1][size - c - 1];
+            newShape[r][c] = shape[size - r - 1][size - c - 1];
             break;
         }
       }
     }
-    return newshape;
+    return newShape;
   }
 
   copy(): Tetromino {
