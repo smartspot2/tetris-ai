@@ -2,28 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
-          integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
-          crossorigin="anonymous"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js"
-          integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k"
-          crossorigin="anonymous"></script>
-  <!--  -----  p5js  -----  -->
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script>
-  <!--  Tetris config  -->
-<!--  <script src="src/config.js"></script>-->
-  <!--  auxil js files -->
-<!--  <script src="src/Tetromino.ts"></script>-->
-<!--  <script src="src/Board.ts"></script>-->
-<!--  <script src="src/AI.ts"></script>-->
-  <!--  main sketch  -->
-  <script defer src="build/build.js"></script>
   <!--  CSS  -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
-        integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+  <link crossorigin="anonymous" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
+        integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" rel="stylesheet">
 
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css"/>
+  <link href="styles.css" rel="stylesheet"/>
   <title>Tetris</title>
 </head>
 <body>
@@ -38,67 +22,76 @@
   <div id="settings-bb">
     <div id="settings">
       <h5>Settings</h5>
-      <div class="collapsed" id="settings-content">
+      <div id="settings-content" class="collapsed">
         <div id="basic-settings">
-          <div class="settings-row" id="enable-ai">
+          <div id="enable-ai" class="settings-row">
             <div class="settings-col-left">
               <label class="control-label" for="enable-ai-input">Enable AI</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-switch" id="enable-ai-input"
-                     onclick="toggleAI();" onfocus="this.blur()" type="checkbox"/>
+              <input id="enable-ai-input" class="control-input settings-switch"
+                     onfocus="this.blur()" type="checkbox"/>
             </div>
           </div>
-          <div class="settings-row" id="ai-delay">
+          <div id="ai-delay" class="settings-row">
             <div class="settings-col-left">
               <label class="control-label" for="ai-delay-input">AI Delay</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" disabled
-                     id="ai-delay-input"
-                     min="-1" onchange="changeSetting(this, 'aidelay');" type="number"/>
+              <input id="ai-delay-input" class="control-input settings-number"
+                     disabled
+                     min="-1" type="number"/>
+            </div>
+          </div>
+          <div id="ai-parallel" class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="ai-parallel-input">Parallelize AI</label>
+            </div>
+            <div class="settings-col-right">
+              <input id="ai-parallel-input" class="control-input settings-switch"
+                     disabled
+                     onfocus="this.blur()" type="checkbox"/>
             </div>
           </div>
           <hr>
-          <div class="settings-row" id="frame-rate">
+          <div id="frame-rate" class="settings-row">
             <div class="settings-col-left">
               <label class="control-label" for="frame-rate-input">Frame Rate</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="frame-rate-input"
+              <input id="frame-rate-input" class="control-input settings-number"
                      min="10"
-                     onchange="changeSetting(this, 'framerate');" type="number"/>
+                     type="number"/>
             </div>
           </div>
-          <div class="settings-row" id="drop-frames">
+          <div id="drop-frames" class="settings-row">
             <div class="settings-col-left">
               <label class="control-label" for="drop-frames-input">Drop Frames</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="drop-frames-input"
-                     min="0"
-                     onchange="changeSetting(this, 'dropframes');" type="number"/>
+              <input id="drop-frames-input" class="control-input settings-number"
+                     min="0" type="number"/>
             </div>
           </div>
-          <div class="settings-row" id="show-hint">
+          <div id="show-hint" class="settings-row">
             <div class="settings-col-left">
               <label class="control-label" for="show-hint-input">Show Hints</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-switch" id="show-hint-input"
-                     onclick="toggleShowHint();" onfocus="this.blur()" type="checkbox"/>
+              <input id="show-hint-input" class="control-input settings-switch"
+                     onfocus="this.blur()" type="checkbox"/>
             </div>
           </div>
         </div>
-        <div class="collapsed" id="advanced-settings">
+        <div id="advanced-settings" class="collapsed">
           <div class="settings-row">
             <div class="settings-col-left">
               <label class="control-label" for="weight-line-clears">Line clears wt.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="weight-line-clears"
+              <input id="weight-line-clears" class="control-input settings-number"
                      min="0"
-                     onchange="changeSetting(this, 'weight_lineclears');" type="number"/>
+                     type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -106,9 +99,9 @@
               <label class="control-label" for="weight-holes">Holes wt.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="weight-holes"
+              <input id="weight-holes" class="control-input settings-number"
                      min="0"
-                     onchange="changeSetting(this, 'weight_holes');" type="number"/>
+                     type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -116,9 +109,9 @@
               <label class="control-label" for="weight-board-height">Board height wt.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="weight-board-height"
+              <input id="weight-board-height" class="control-input settings-number"
                      min="0"
-                     onchange="changeSetting(this, 'weight_boardheight');" type="number"/>
+                     type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -126,9 +119,9 @@
               <label class="control-label" for="weight-placement-height">Placement height wt.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="weight-placement-height"
+              <input id="weight-placement-height" class="control-input settings-number"
                      min="0"
-                     onchange="changeSetting(this, 'weight_placementheight');" type="number"/>
+                     type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -136,9 +129,9 @@
               <label class="control-label" for="weight-avg-height-diff">Avg. height diff. wt.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" id="weight-avg-height-diff"
+              <input id="weight-avg-height-diff" class="control-input settings-number"
                      min="0"
-                     onchange="changeSetting(this, 'weight_avgheightdiff');" type="number"/>
+                     type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -146,8 +139,8 @@
               <label class="control-label" for="scaled-holes">Holes scaled</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-switch" id="scaled-holes"
-                     onclick="toggleScaled('holes');" type="checkbox"/>
+              <input id="scaled-holes" class="control-input settings-switch"
+                     type="checkbox"/>
             </div>
           </div>
           <div class="settings-row">
@@ -155,9 +148,9 @@
               <label class="control-label" for="exp-holes">Holes scale exp.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" disabled
-                     id="exp-holes"
-                     min="0" onchange="changeSetting(this, 'exp_holes');" step="0.01" type="number"/>
+              <input id="exp-holes" class="control-input settings-number"
+                     disabled
+                     min="0" step="0.01" type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -165,8 +158,8 @@
               <label class="control-label" for="scaled-board-height">Board height scaled</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-switch" id="scaled-board-height"
-                     onclick="toggleScaled('board-height')" type="checkbox"/>
+              <input id="scaled-board-height" class="control-input settings-switch"
+                     type="checkbox"/>
             </div>
           </div>
           <div class="settings-row">
@@ -174,9 +167,9 @@
               <label class="control-label" for="exp-board-height">Board height scale exp.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" disabled
-                     id="exp-board-height"
-                     min="0" onchange="changeSetting(this, 'exp_boardheight');" step="0.01" type="number"/>
+              <input id="exp-board-height" class="control-input settings-number"
+                     disabled
+                     min="0" step="0.01" type="number"/>
             </div>
           </div>
           <div class="settings-row">
@@ -184,8 +177,8 @@
               <label class="control-label" for="scaled-placement-height">Placement height scaled</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-switch" id="scaled-placement-height"
-                     onclick="toggleScaled('placement-height')" type="checkbox"/>
+              <input id="scaled-placement-height" class="control-input settings-switch"
+                     type="checkbox"/>
             </div>
           </div>
           <div class="settings-row">
@@ -193,15 +186,15 @@
               <label class="control-label" for="exp-placement-height">Placement height scale exp.</label>
             </div>
             <div class="settings-col-right">
-              <input class="control-input settings-number" disabled
-                     id="exp-placement-height"
-                     min="0" onchange="changeSetting(this, 'exp_placementheight');" step="0.01" type="number"/>
+              <input id="exp-placement-height" class="control-input settings-number"
+                     disabled
+                     min="0" step="0.01" type="number"/>
             </div>
           </div>
         </div>
       </div>
       <hr>
-      <button class="btn btn-outline-dark" id="settings-toggle" onclick="toggleSettings(this);" onfocus="this.blur()">
+      <button id="settings-toggle" class="btn btn-outline-dark" onfocus="this.blur()">
         Advanced
       </button>
     </div>
@@ -214,7 +207,7 @@
           <span>Current score</span>
         </div>
         <div class="statistics-col-right">
-          <span class="statistics-number" id="stats-current-score"></span>
+          <span id="stats-current-score" class="statistics-number"></span>
         </div>
       </div>
       <div class="statistics-row">
@@ -223,10 +216,10 @@
         </div>
         <div class="statistics-col-split">
           <div class="statistics-split-left">
-            <span class="statistics-number" id="stats-line-clears"></span>
+            <span id="stats-line-clears" class="statistics-number"></span>
           </div>
           <div class="statistics-split-right">
-            (<span class="statistics-number statistics-positive" id="stats-line-clears-calc"></span>)
+            (<span id="stats-line-clears-calc" class="statistics-number statistics-positive"></span>)
           </div>
         </div>
       </div>
@@ -236,10 +229,10 @@
         </div>
         <div class="statistics-col-split">
           <div class="statistics-split-left">
-            <span class="statistics-number" id="stats-holes"></span>
+            <span id="stats-holes" class="statistics-number"></span>
           </div>
           <div class="statistics-split-right">
-            (<span class="statistics-number statistics-negative" id="stats-holes-calc"></span>)
+            (<span id="stats-holes-calc" class="statistics-number statistics-negative"></span>)
           </div>
         </div>
       </div>
@@ -249,10 +242,10 @@
         </div>
         <div class="statistics-col-split">
           <div class="statistics-split-left">
-            <span class="statistics-number" id="stats-board-height"></span>
+            <span id="stats-board-height" class="statistics-number"></span>
           </div>
           <div class="statistics-split-right">
-            (<span class="statistics-number statistics-negative" id="stats-board-height-calc"></span>)
+            (<span id="stats-board-height-calc" class="statistics-number statistics-negative"></span>)
           </div>
         </div>
       </div>
@@ -262,10 +255,10 @@
         </div>
         <div class="statistics-col-split">
           <div class="statistics-split-left">
-            <span class="statistics-number" id="stats-placement-height"></span>
+            <span id="stats-placement-height" class="statistics-number"></span>
           </div>
           <div class="statistics-split-right">
-            (<span class="statistics-number statistics-negative" id="stats-placement-height-calc"></span>)
+            (<span id="stats-placement-height-calc" class="statistics-number statistics-negative"></span>)
           </div>
         </div>
       </div>
@@ -275,10 +268,10 @@
         </div>
         <div class="statistics-col-split">
           <div class="statistics-split-left">
-            <span class="statistics-number" id="stats-avg-height-diff"></span>
+            <span id="stats-avg-height-diff" class="statistics-number"></span>
           </div>
           <div class="statistics-split-right">
-            (<span class="statistics-number statistics-negative" id="stats-avg-height-diff-calc"></span>)
+            (<span id="stats-avg-height-diff-calc" class="statistics-number statistics-negative"></span>)
           </div>
         </div>
       </div>
@@ -286,9 +279,18 @@
   </div>
 </main>
 <div id="replay-btn-div">
-  <button class="btn btn-outline-secondary" id="replay-btn" onclick="resetBoard()" type="button">Play Again</button>
+  <button id="replay-btn" class="btn btn-outline-secondary" type="button">Play Again</button>
 </div>
 </body>
-<script defer type="text/javascript">
-</script>
+
+<script crossorigin="anonymous"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script crossorigin="anonymous"
+        integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k"
+        src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js"></script>
+<!--  -----  p5js  -----  -->
+<script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script>
+<!--  main sketch  -->
+<script src="src/sketch.ts" type="module"></script>
 </html>

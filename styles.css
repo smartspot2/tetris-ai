@@ -89,7 +89,7 @@
 #settings-content {
     position: relative;
     overflow: hidden;
-    height: 333px;
+    height: 345px;
 
     transition: height 0.25s ease-in-out;
     -webkit-transition: height 0.25s ease-in-out;
@@ -97,7 +97,7 @@
 }
 
 #settings-content.collapsed {
-    height: 223px;
+    height: 250px;
 }
 
 #basic-settings, #advanced-settings {

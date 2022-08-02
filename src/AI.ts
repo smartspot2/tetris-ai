@@ -1,6 +1,25 @@
+import Board from "./Board";
+import { CONFIG } from "./config";
+import Tetromino from "./Tetromino";
+import { Rotation, TETROMINO_TYPE } from "./TetrominoConstants";
+
+import Parallel from "paralleljs";
+import p5 from "p5";
+
 interface ExecuteType {
   steps: [number, AIStep][];
   tet: Tetromino;
+  row: number;
+  col: number;
+  arr: (0 | p5.Color)[][];
+}
+
+interface ParallelExecuteType {
+  steps: [number, AIStep][];
+  tet: {
+    kind: keyof typeof TETROMINO_TYPE,
+    rotation: Rotation
+  };
   row: number;
   col: number;
   arr: (0 | p5.Color)[][];
@@ -27,12 +46,14 @@ enum AIStep {
   DOWN = "d"  // either press down, or wait for the tetromino to drop by one
 }
 
-class AI {
+export default class AI {
   toExecute: ExecuteType | null;
+  private readonly _p: p5;
   private framesUntilNext: number;
   private board: Board;
 
-  constructor(board: Board) {
+  constructor(p: p5, board: Board) {
+    this._p = p;
     this.board = board;
     this.toExecute = null;
 
@@ -45,7 +66,7 @@ class AI {
     }
     if (!this.toExecute) {
       this.toExecute = this.selectDest();
-      displayScore(this.toExecute);
+      this.displayScore(this.toExecute);
     }
     if (this.framesUntilNext-- > 0) {
       return;
@@ -120,34 +141,36 @@ class AI {
   getbestlist() {
     // starting values of the current and next tetrominos
     const curTet = this.board.curTetromino.copy();
-    let altTet: Tetromino, nextTet: Tetromino | undefined;
+    let altTet: Tetromino;
+    let nextTet: Tetromino | undefined;
     if (this.board.heldTetromino != null) {
       altTet = this.board.heldTetromino.copy();
       nextTet = this.board.nextTetromino.copy();
     } else {
       altTet = this.board.nextTetromino.copy();
-      nextTet = undefined;
     }
     // get all possible end positions
     let posList = this.bfsEndPositions(curTet.copy(), altTet.copy());
 
-    // filter to only the top 25%
+    // filter to only consider the best options
     let scoreList = posList.map(pos => this.getScore(pos));
     const sortedScoreList = scoreList.slice();
     sortedScoreList.sort((a, b) => b - a);
-    let cutoff = sortedScoreList[Math.floor(scoreList.length / 4)];
+    // we can afford to go through more if we parallelize
+    const percentile = CONFIG.aiparallel ? Math.floor(scoreList.length / 2) : Math.floor(scoreList.length / 4);
+    let cutoff = sortedScoreList[percentile];
     if (cutoff === sortedScoreList[0]) {
       cutoff -= 1;  // include the top score if necessary
     }
     posList = posList.filter((_pos, idx) => scoreList[idx] > cutoff);
     scoreList = scoreList.filter(score => score > cutoff);
 
-    // bump previous; need to have a strict improvement to take the next
+    // bump current state; need to have a strict improvement to take the next
     scoreList = scoreList.map(score => score + CONFIG.aiturnimprovement);
 
     // get all possible end positions for the next turn, for each one of the previous
     const prevArr = this.board.arr.map(a => a.slice());
-    const nextScores = posList.map(pos => {
+    const processPos = (pos: ExecuteType) => {
       this.board.place(pos.tet);  // place the tetromino
       this.board.checkLineClears(false);
       let nextStart: Tetromino, nextAlt: Tetromino | undefined;
@@ -168,7 +191,38 @@ class AI {
       // restore the board
       this.board.arr = prevArr.map(a => a.slice());
       return Math.max(...nextScoreList);
-    });
+    };
+
+    let nextScores: number[] = [];
+    if (CONFIG.aiparallel) {
+      // convert to a serializable type, and the tetromino can be recreated in the parallel function
+      const p = new Parallel(posList.map<ParallelExecuteType>(pos => ({
+        steps: pos.steps,
+        arr: pos.arr,
+        tet: {
+          kind: pos.tet.kind,
+          rotation: pos.tet.rotation
+        },
+        row: pos.row,
+        col: pos.col
+      })));
+
+      p.map<any>((parallel_pos: ParallelExecuteType) => {
+        // rebuild the execution type
+        const pos: ExecuteType = {
+          steps: parallel_pos.steps,
+          arr: parallel_pos.arr,
+          tet: new Tetromino(this._p, parallel_pos.tet.kind, parallel_pos.row, parallel_pos.col, parallel_pos.tet.rotation),
+          row: parallel_pos.row,
+          col: parallel_pos.col
+        };
+        return processPos(pos);
+      }).then((arr: any[]) => {
+        nextScores = arr;
+      });
+    } else {
+      nextScores = posList.map(processPos);
+    }
 
     const maxScore = Math.max(...nextScores, ...scoreList);
     return posList.filter((_pos, idx) => scoreList[idx] === maxScore || nextScores[idx] === maxScore);
@@ -429,35 +483,36 @@ class AI {
     stats.avgheightdiff = sumHeightDiffs / (CONFIG.cols - 1);
     return stats;
   }
-}
 
-function displayScore(potential: ExecuteType) {
-  const HTMLscore = document.getElementById("stats-current-score")!;
-  const HTMLlineclears = document.getElementById("stats-line-clears")!;
-  const HTMLlineclearscalc = document.getElementById("stats-line-clears-calc")!;
-  const HTMLholes = document.getElementById("stats-holes")!;
-  const HTMLholescalc = document.getElementById("stats-holes-calc")!;
-  const HTMLboardheight = document.getElementById("stats-board-height")!;
-  const HTMLboardheightcalc = document.getElementById("stats-board-height-calc")!;
-  const HTMLplacementheight = document.getElementById("stats-placement-height")!;
-  const HTMLplacementheightcalc = document.getElementById("stats-placement-height-calc")!;
-  const HTMLavgheightdiff = document.getElementById("stats-avg-height-diff")!;
-  const HTMLavgheightdiffcalc = document.getElementById("stats-avg-height-diff-calc")!;
-  const score = ai.getScore(potential);
-  const stats = ai.getStatistics(potential);
-  HTMLscore.innerHTML = ((score < 0) ? "" : "&nbsp;") + (Math.round(score * 100) / 100);
-  HTMLlineclears.innerHTML = String(stats.lineclears);
-  HTMLlineclearscalc.innerHTML = String(Math.round(CONFIG.weight_lineclears * stats.lineclears * 100) / 100);
-  HTMLholes.innerHTML = String(Math.round((CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
-  HTMLholescalc.innerHTML = String(Math.round(-CONFIG.weight_holes *
-    (CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
-  HTMLboardheight.innerHTML = String(Math.round(stats.boardheight * 100) / 100);
-  HTMLboardheightcalc.innerHTML = String(Math.round(-CONFIG.weight_boardheight *
-    (CONFIG.scaled_boardheight ? stats.scaledboardheight : stats.boardheight) * 100) / 100);
-  HTMLplacementheight.innerHTML = String(Math.round(stats.placementheight * 100) / 100);
-  HTMLplacementheightcalc.innerHTML = String(Math.round(-CONFIG.weight_placementheight *
-    (CONFIG.scaled_placementheight ? stats.scaledplacementheight : stats.placementheight) * 100) / 100);
-  HTMLavgheightdiff.innerHTML = String(Math.round(stats.avgheightdiff * 100) / 100);
-  HTMLavgheightdiffcalc.innerHTML = String(
-    Math.round(-CONFIG.weight_avgheightdiff * stats.avgheightdiff * 100) / 100);
+
+  displayScore(potential: ExecuteType) {
+    const HTMLscore = document.getElementById("stats-current-score")!;
+    const HTMLlineclears = document.getElementById("stats-line-clears")!;
+    const HTMLlineclearscalc = document.getElementById("stats-line-clears-calc")!;
+    const HTMLholes = document.getElementById("stats-holes")!;
+    const HTMLholescalc = document.getElementById("stats-holes-calc")!;
+    const HTMLboardheight = document.getElementById("stats-board-height")!;
+    const HTMLboardheightcalc = document.getElementById("stats-board-height-calc")!;
+    const HTMLplacementheight = document.getElementById("stats-placement-height")!;
+    const HTMLplacementheightcalc = document.getElementById("stats-placement-height-calc")!;
+    const HTMLavgheightdiff = document.getElementById("stats-avg-height-diff")!;
+    const HTMLavgheightdiffcalc = document.getElementById("stats-avg-height-diff-calc")!;
+    const score = this.board.ai.getScore(potential);
+    const stats = this.board.ai.getStatistics(potential);
+    HTMLscore.innerHTML = ((score < 0) ? "" : "&nbsp;") + (Math.round(score * 100) / 100);
+    HTMLlineclears.innerHTML = String(stats.lineclears);
+    HTMLlineclearscalc.innerHTML = String(Math.round(CONFIG.weight_lineclears * stats.lineclears * 100) / 100);
+    HTMLholes.innerHTML = String(Math.round((CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
+    HTMLholescalc.innerHTML = String(Math.round(-CONFIG.weight_holes *
+      (CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
+    HTMLboardheight.innerHTML = String(Math.round(stats.boardheight * 100) / 100);
+    HTMLboardheightcalc.innerHTML = String(Math.round(-CONFIG.weight_boardheight *
+      (CONFIG.scaled_boardheight ? stats.scaledboardheight : stats.boardheight) * 100) / 100);
+    HTMLplacementheight.innerHTML = String(Math.round(stats.placementheight * 100) / 100);
+    HTMLplacementheightcalc.innerHTML = String(Math.round(-CONFIG.weight_placementheight *
+      (CONFIG.scaled_placementheight ? stats.scaledplacementheight : stats.placementheight) * 100) / 100);
+    HTMLavgheightdiff.innerHTML = String(Math.round(stats.avgheightdiff * 100) / 100);
+    HTMLavgheightdiffcalc.innerHTML = String(
+      Math.round(-CONFIG.weight_avgheightdiff * stats.avgheightdiff * 100) / 100);
+  }
 }

@@ -1,10 +1,20 @@
-class Board {
+import p5 from "p5";
+
+import Tetromino from "./Tetromino";
+import { CONFIG } from "./config";
+import { Rotation, TETROMINO_TYPE, WALLKICK_TESTS, WALLKICK_TESTS_I } from "./TetrominoConstants";
+import AI from "./AI";
+
+export default class Board {
   public arr: (0 | p5.Color)[][];
+  public ai: AI;
   curTetromino: Tetromino;
   gameOver: boolean;
   nextTetromino: Tetromino;
   heldTetromino: Tetromino | null;
   lineClears: number;
+
+  private readonly _p: p5;
   private readonly x: number;
   private readonly y: number;
   private readonly w: number;
@@ -15,7 +25,8 @@ class Board {
   private framesUntilLock: number | null;
   private hasHeld: boolean;
 
-  constructor(x: number, y: number, w: number, h: number) {
+  constructor(p: p5, x: number, y: number, w: number, h: number) {
+    this._p = p;
     this.x = x;
     this.y = y;
     this.w = w;
@@ -37,27 +48,29 @@ class Board {
     this.hasHeld = false;
     this.lineClears = 0;
     this.gameOver = false;
+
+    this.ai = new AI(p, this);
   }
 
   refillBag(): void {
-    this.curBag = [new Tetromino("O", -2, 4, Rotation.SPAWN)];
+    this.curBag = [new Tetromino(this._p, "O", -2, 4, Rotation.SPAWN)];
     for (const kind of ["I", "J", "L", "S", "T", "Z"] as (keyof typeof TETROMINO_TYPE)[]) {
-      this.curBag.push(new Tetromino(kind, -2, 3, Rotation.SPAWN));
+      this.curBag.push(new Tetromino(this._p, kind, -2, 3, Rotation.SPAWN));
     }
-    this.curBag = shuffle(this.curBag);
+    this.curBag = this._p.shuffle(this.curBag);
   }
 
   draw(): void {
     this.drawBoard();
 
-    if (CONFIG.aienabled && ai.toExecute) {
-      const aitarget = ai.toExecute.tet;
+    if (CONFIG.aienabled && this.ai.toExecute) {
+      const aitarget = this.ai.toExecute.tet;
       aitarget.draw(CONFIG.aitarget_alpha);
     } else if (!CONFIG.aienabled && CONFIG.showhint) {
-      if (ai.toExecute == null) {
-        ai.toExecute = ai.selectDest();
+      if (this.ai.toExecute == null) {
+        this.ai.toExecute = this.ai.selectDest();
       }
-      ai.toExecute.tet.draw(CONFIG.hint_alpha);
+      this.ai.toExecute.tet.draw(CONFIG.hint_alpha);
     }
 
     this.curTetromino.draw();
@@ -103,42 +116,41 @@ class Board {
         }
       }
 
-      ai.aistep();
+      this.ai.aistep();
     }
   }
 
   drawBoard(): void {
-    fill(230);
-    noStroke();
-    rect(this.x, this.y, this.w, this.h);
+    this._p.fill(230);
+    this._p.noStroke();
+    this._p.rect(this.x, this.y, this.w, this.h);
 
-    noFill();
-    stroke(190);
+    this._p.noFill();
+    this._p.stroke(190);
     for (let r = 0; r < CONFIG.rows; r++) {
       for (let c = 0; c < CONFIG.cols; c++) {
         const arrVal = this.arr[r][c];
         if (arrVal) {
-          fill(arrVal);
+          this._p.fill(arrVal);
         } else {
-          noFill();
+          this._p.noFill();
         }
-        rect(this.x + this.tileSize * c, this.y + this.tileSize * r, this.tileSize, this.tileSize);
+        this._p.rect(this.x + this.tileSize * c, this.y + this.tileSize * r, this.tileSize, this.tileSize);
       }
     }
 
-    noFill();
-    stroke(0);
-    strokeWeight(2);
-    rect(this.x, this.y, this.w, this.h);
-    strokeWeight(1);
+    this._p.noFill();
+    this._p.stroke(0);
+    this._p.strokeWeight(2);
+    this._p.rect(this.x, this.y, this.w, this.h);
+    this._p.strokeWeight(1);
 
-    fill(230);
-    stroke(0);
-    strokeWeight(2);
-    rect(this.x + this.w + CONFIG.tilesize * (1.5 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize * 5 * 0.75, CONFIG.tilesize * 2.75);
-    rect(this.x - CONFIG.tilesize * (1.5 + 5 * 0.75 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize * 5 * 0.75, CONFIG.tilesize * 2.75);
-    strokeWeight(1);
-
+    this._p.fill(230);
+    this._p.stroke(0);
+    this._p.strokeWeight(2);
+    this._p.rect(this.x + this.w + CONFIG.tilesize * (1.5 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize * 5 * 0.75, CONFIG.tilesize * 2.75);
+    this._p.rect(this.x - CONFIG.tilesize * (1.5 + 5 * 0.75 - 0.25), this.y + CONFIG.tilesize, CONFIG.tilesize * 5 * 0.75, CONFIG.tilesize * 2.75);
+    this._p.strokeWeight(1);
   }
 
   move(tetromino: Tetromino, dr: number, dc: number): void {
@@ -238,7 +250,7 @@ class Board {
   }
 
   placeCurTetromino(): void {
-    ai.toExecute = null;
+    this.ai.toExecute = null;
     this.place(this.curTetromino);
     this.checkLineClears();
     this.curTetromino = this.nextTetromino;
@@ -271,7 +283,7 @@ class Board {
         }
 
         if (this.arr[tetromino.r + tet_r][tetromino.c + tet_c] === 0) {
-          this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = color(TETROMINO_TYPE[tetromino.kind].color);
+          this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = this._p.color(TETROMINO_TYPE[tetromino.kind].color);
         } else {
           throw Error(
             `Invalid tetromino (${tetromino.kind}) placement:`

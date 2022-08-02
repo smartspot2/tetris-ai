@@ -1,15 +1,13 @@
-enum Rotation {
-  SPAWN = 0,
-  CLOCKWISE = 1,
-  FLIP = 2,
-  COUNTERCLOCKWISE = 3
-}
+import { Rotation, TETROMINO_TYPE } from "./TetrominoConstants";
+import { CONFIG } from "./config";
+import p5 from "p5";
 
 const rotateFromState = (state: Rotation, rotation: Rotation): Rotation => {
   return (state + rotation) % 4 as Rotation;
 };
 
-class Tetromino {
+export default class Tetromino {
+  private readonly _p: p5;
   kind: keyof typeof TETROMINO_TYPE;
   rotation: Rotation;
   r: number;
@@ -17,12 +15,14 @@ class Tetromino {
 
   /**
    * Creates a tetromino object in arr coordinates
+   * @param p        p5js instance
    * @param kind     Tetronimno name
    * @param r        Topleft row relative to arr
    * @param c        Topleft col relative to arr
    * @param rotation current rotation value relative to spawn
    */
-  constructor(kind: keyof typeof TETROMINO_TYPE, r: number, c: number, rotation: Rotation) {
+  constructor(p: p5, kind: keyof typeof TETROMINO_TYPE, r: number, c: number, rotation: Rotation) {
+    this._p = p;
     this.kind = kind;
     this.r = r;
     this.c = c;
@@ -35,13 +35,13 @@ class Tetromino {
 
   drawat(r: number, c: number, scale: number, alpha?: number): void {
     const tetColor = TETROMINO_TYPE[this.kind].color;
-    stroke(CONFIG.tetromino_stroke);
+    this._p.stroke(CONFIG.tetromino_stroke);
     if (alpha) {
-      const colorWithAlpha = color(tetColor);
+      const colorWithAlpha = this._p.color(tetColor);
       colorWithAlpha.setAlpha(alpha);
-      fill(colorWithAlpha);
+      this._p.fill(colorWithAlpha);
     } else {
-      fill(tetColor);
+      this._p.fill(tetColor);
     }
     if (scale === 0.75) {
       if (this.kind === "I") {
@@ -55,7 +55,7 @@ class Tetromino {
     for (let shape_r = 0; shape_r < shape.length; shape_r++) {
       for (let shape_c = 0; shape_c < shape[shape_r].length; shape_c++) {
         if (shape[shape_r][shape_c] && r + shape_r >= 0) {
-          rect(CONFIG.board_tl.x + CONFIG.tilesize * c + CONFIG.tilesize * shape_c * scale,
+          this._p.rect(CONFIG.board_tl.x + CONFIG.tilesize * c + CONFIG.tilesize * shape_c * scale,
             CONFIG.board_tl.y + CONFIG.tilesize * r + CONFIG.tilesize * shape_r * scale,
             CONFIG.tilesize * scale, CONFIG.tilesize * scale);
         }
@@ -78,7 +78,7 @@ class Tetromino {
   }
 
   copy(): Tetromino {
-    return new Tetromino(this.kind, this.r, this.c, this.rotation);
+    return new Tetromino(this._p, this.kind, this.r, this.c, this.rotation);
   }
 
   reset(): void {
@@ -120,193 +120,3 @@ class Tetromino {
     return newShape;
   }
 }
-
-/**
- * All possible tetromino types, along with their corresponding shapes and colors.
- */
-const TETROMINO_TYPE = {
-  I: {
-    shape: [[0, 0, 0, 0],
-      [1, 1, 1, 1],
-      [0, 0, 0, 0],
-      [0, 0, 0, 0]],
-    color: "#31C7EF"
-  },
-  J: {
-    shape: [[1, 0, 0],
-      [1, 1, 1],
-      [0, 0, 0]
-    ],
-    color: "#5A65AD"
-  },
-  L: {
-    shape: [[0, 0, 1],
-      [1, 1, 1],
-      [0, 0, 0]],
-    color: "#EF7921"
-  },
-  O: {
-    shape: [[1, 1],
-      [1, 1]],
-    color: "#F7D308"
-  },
-  S: {
-    shape: [[0, 1, 1],
-      [1, 1, 0],
-      [0, 0, 0]],
-    color: "#42B642"
-  },
-  T: {
-    shape: [[0, 1, 0],
-      [1, 1, 1],
-      [0, 0, 0]],
-    color: "#AD4D9C"
-  },
-  Z: {
-    shape: [[1, 1, 0],
-      [0, 1, 1],
-      [0, 0, 0]],
-    color: "#EF2029"
-  }
-} as const;
-
-/**
- * Translation tests for wall kick implementation.
- *
- * First level is the current rotation state,
- * second level is which direction we're rotating (i.e. CLOCKWISE vs COUNTERCLOCKWISE).
- * The resulting array gives a list of pairs (dr, dc) to translate by, to be tested in order.
- */
-const WALLKICK_TESTS: { [state in Rotation]: { [rot in Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE]: number[][] } } = {
-  [Rotation.SPAWN]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, -1],
-      [-1, -1],
-      [2, 0],
-      [2, -1]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, 1],
-      [-1, 1],
-      [2, 0],
-      [2, 1]
-    ]
-  },
-  [Rotation.CLOCKWISE]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, 1],
-      [1, 1],
-      [-2, 0],
-      [-2, 1]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, 1],
-      [1, 1],
-      [-2, 0],
-      [-2, 1]
-    ]
-  },
-  [Rotation.FLIP]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, 1],
-      [-1, 1],
-      [2, 0],
-      [2, 1]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, -1],
-      [-1, -1],
-      [2, 0],
-      [2, -1]
-    ]
-  },
-  [Rotation.COUNTERCLOCKWISE]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, -1],
-      [1, -1],
-      [-2, 0],
-      [-2, -1]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, -1],
-      [1, -1],
-      [-2, 0],
-      [-2, -1]
-    ]
-  }
-};
-
-const WALLKICK_TESTS_I: { [state in Rotation]: { [rot in Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE]: number[][] } } = {
-  [Rotation.SPAWN]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, -2],
-      [0, 1],
-      [1, -2],
-      [-2, 1]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, -1],
-      [0, 2],
-      [-2, -1],
-      [1, 2]
-    ]
-  },
-  [Rotation.CLOCKWISE]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, -1],
-      [0, 2],
-      [-2, -1],
-      [1, 2]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, 2],
-      [0, -1],
-      [-1, 2],
-      [2, -1]
-    ]
-  },
-  [Rotation.FLIP]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, 2],
-      [0, -1],
-      [-1, 2],
-      [2, -1]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, 1],
-      [0, -2],
-      [2, 1],
-      [-1, -2]
-    ]
-  },
-  [Rotation.COUNTERCLOCKWISE]: {
-    [Rotation.CLOCKWISE]: [
-      [0, 0],
-      [0, 1],
-      [0, -2],
-      [2, 1],
-      [-1, -2]
-    ],
-    [Rotation.COUNTERCLOCKWISE]: [
-      [0, 0],
-      [0, -2],
-      [0, 1],
-      [1, -2],
-      [-2, 1]
-    ]
-  }
-};

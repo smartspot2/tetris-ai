@@ -1,4 +1,4 @@
-const CONFIG = {
+export const CONFIG = {
   board_tl: { x: 0, y: 0 },
   board_w: 300,
   board_h: 600,
@@ -17,6 +17,7 @@ const CONFIG = {
 
   aienabled: false,
   aidelay: 1,
+  aiparallel: true,
   showhint: false,
 
   weight_lineclears: 200,
@@ -34,23 +35,7 @@ const CONFIG = {
   aiturnimprovement: 100
 };
 
-function toggleAI() {
-  CONFIG.aienabled = !CONFIG.aienabled;
-  // console.info('AI toggled; now ' + CONFIG.aienabled);
-  // Toggle other AI inputs
-  if (CONFIG.aienabled) {
-    document.getElementById("ai-delay-input")?.removeAttribute("disabled");
-  } else {
-    document.getElementById("ai-delay-input")?.setAttribute("disabled", "");
-  }
-}
-
-function toggleShowHint() {
-  CONFIG.showhint = !CONFIG.showhint;
-  // console.info('Show hint toggled; now ' + CONFIG.showhint);
-}
-
-const MINSETTINGS = {
+export const MINSETTINGS = {
   aidelay: -1,
   framerate: 10,
   dropframes: 0,
@@ -64,56 +49,19 @@ const MINSETTINGS = {
   exp_placementheight: 0
 };
 
-function changeSetting(el: HTMLInputElement, setting: keyof typeof MINSETTINGS) {
-  const val = Number(el.value);
-  if (isNaN(val)) {
-    el.value = String(CONFIG[setting]);
-    return;
-  }
-  if (val < MINSETTINGS[setting]) {
-    el.value = String(MINSETTINGS[setting]);
-  }
-  CONFIG[setting] = Number(val);
-  if (setting === "framerate") {
-    frameRate(CONFIG.framerate);
-  }
-  // console.info(setting + ' set to: ' + el.value);
-  // Update statistics
-  if (CONFIG.aienabled && ai.toExecute) {
-    displayScore(ai.toExecute);
-  } else {
-    displayScore(ai.getPotential(board.curTetromino));
-  }
-}
-
-function toggleScaled(setting: string) {
-  // coerce types
-  const formattedSetting: "holes" | "boardheight" | "placementheight" = setting.replace("-", "") as any;
-  const scaledSetting: "scaled_holes" | "scaled_boardheight" | "scaled_placementheight" = "scaled_" + formattedSetting as any;
-
-  CONFIG[scaledSetting] = !CONFIG[scaledSetting];
-  if (CONFIG[scaledSetting]) {
-    if (setting === "holes") {
-      document.getElementById("stats-holes-label")!.innerText = "Holes (scaled)";
-    }
-    document.getElementById("exp-" + setting)!.removeAttribute("disabled");
-  } else {
-    if (setting === "holes") {
-      document.getElementById("stats-holes-label")!.innerText = "Holes";
-    }
-    document.getElementById("exp-" + setting)!.setAttribute("disabled", "");
-  }
-}
-
 
 /* Initialize HTML config settings */
 
 if (CONFIG.aienabled) {
   document.getElementById("enable-ai-input")!.setAttribute("checked", "");
   document.getElementById("ai-delay-input")!.removeAttribute("disabled");
+  document.getElementById("ai-parallel-input")!.removeAttribute("disabled");
 }
 if (CONFIG.showhint) {
   document.getElementById("show-hint-input")!.setAttribute("checked", "");
+}
+if (CONFIG.aiparallel) {
+  (document.getElementById("ai-parallel-input")! as HTMLInputElement).setAttribute("checked", "");
 }
 (document.getElementById("ai-delay-input")! as HTMLInputElement).value = String(CONFIG.aidelay);
 (document.getElementById("frame-rate-input")! as HTMLInputElement).value = String(CONFIG.framerate);
@@ -145,17 +93,3 @@ window.addEventListener("keydown", function (e) {
     e.preventDefault();
   }
 }, false);
-
-function toggleSettings(el: HTMLButtonElement) {
-  if (el.innerText.includes("Advanced")) {
-    document.getElementById("basic-settings")!.classList.add("collapsed");
-    document.getElementById("advanced-settings")!.classList.remove("collapsed");
-    document.getElementById("settings-content")!.classList.remove("collapsed");
-    el.innerText = "Basic";
-  } else {
-    document.getElementById("basic-settings")!.classList.remove("collapsed");
-    document.getElementById("advanced-settings")!.classList.add("collapsed");
-    document.getElementById("settings-content")!.classList.add("collapsed");
-    el.innerText = "Advanced";
-  }
-}

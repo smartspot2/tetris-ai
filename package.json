@@ -2,15 +2,27 @@
   "name": "tetris-ai",
   "version": "1.0.0",
   "description": "A Tetris AI built with p5.js",
+  "source": "./index.html",
   "scripts": {
-    "start": "run-p start-compile start-run",
-    "start-compile": "tsc --watch",
-    "start-run": "browser-sync start --server -w"
+    "start": "parcel",
+    "prebuild-dev": "shx rm -rf dist",
+    "build-dev": "parcel build --no-optimize --public-url ./",
+    "prebuild": "shx rm -rf dist",
+    "build": "parcel build --public-url ./ --no-scope-hoist",
+    "push-gh-pages": "push-dir --dir=dist --branch=gh-pages --cleanup --verbase"
   },
   "devDependencies": {
     "@types/p5": "^1.4.2",
+    "@types/paralleljs": "^0.0.21",
     "browsersync": "^0.0.1-security",
     "npm-run-all": "^4.1.5",
+    "os-browserify": "^0.3.0",
+    "parcel": "^2.6.2",
+    "shx": "^0.3.4",
     "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "p5": "^1.4.2",
+    "paralleljs": "^1.1.0"
   }
 }
