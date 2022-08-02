@@ -12,6 +12,7 @@ class Board {
   private readonly tileSize: number;
   private curBag: Tetromino[] = [];
   private framesUntilDrop: number;
+  private framesUntilLock: number | null;
   private hasHeld: boolean;
 
   constructor(x: number, y: number, w: number, h: number) {
@@ -32,6 +33,7 @@ class Board {
     this.heldTetromino = null;
 
     this.framesUntilDrop = CONFIG.dropframes;
+    this.framesUntilLock = -1;
     this.hasHeld = false;
     this.lineClears = 0;
     this.gameOver = false;
@@ -39,7 +41,7 @@ class Board {
 
   refillBag(): void {
     this.curBag = [new Tetromino("O", -2, 4, Rotation.SPAWN)];
-    for (const kind of ["I", "J", "L", "S", "T", "Z"] as (keyof typeof TetrominoType)[]) {
+    for (const kind of ["I", "J", "L", "S", "T", "Z"] as (keyof typeof TETROMINO_TYPE)[]) {
       this.curBag.push(new Tetromino(kind, -2, 3, Rotation.SPAWN));
     }
     this.curBag = shuffle(this.curBag);
@@ -67,15 +69,40 @@ class Board {
     if (!this.gameOver) {
       this.getGhost(this.curTetromino).draw(CONFIG.ghost_alpha);
 
-      if (!this.framesUntilDrop--) {
-        this.framesUntilDrop = CONFIG.dropframes;
+      const onGround = !this.isValidMovement(this.curTetromino, 1, 0);
+      if (this.framesUntilLock !== null && !onGround) {
+        this.framesUntilLock = null;
+      }
 
-        if (this.isValid(this.curTetromino, 1, 0)) {
-          this.curTetromino.moveDown();
-        } else {
+      if (this.framesUntilLock !== null) {
+        // currently on the ground; decrease lock timer
+        if (this.framesUntilLock > 0) {
+          this.framesUntilLock--;
+        } else if (this.framesUntilLock === 0) {
           this.placeCurTetromino();
+          // reset timers
+          this.framesUntilLock = null;
+          this.framesUntilDrop = CONFIG.dropframes;
+        }
+      } else {
+        // not currently on the ground; decrease gravity timer
+        this.framesUntilDrop--;
+        if (this.framesUntilDrop <= 0) {
+          this.framesUntilDrop = CONFIG.dropframes;
+
+          if (this.isValidMovement(this.curTetromino, 1, 0)) {
+            this.curTetromino.moveDown();
+
+            // check if it's on the ground; if so, start lock timer
+            if (!this.isValidMovement(this.curTetromino, 1, 0)) {
+              this.framesUntilDrop = CONFIG.dropLockFrames;
+            }
+          } else {
+            this.placeCurTetromino();
+          }
         }
       }
+
       ai.aistep();
     }
   }
@@ -115,9 +142,15 @@ class Board {
   }
 
   move(tetromino: Tetromino, dr: number, dc: number): void {
-    if (this.isValid(tetromino, dr, dc)) {
+    if (this.isValidMovement(tetromino, dr, dc)) {
       tetromino.r += dr;
       tetromino.c += dc;
+    }
+
+    // check if it's on the ground; if so, start the timer
+    const onGround = !this.isValidMovement(tetromino, 1, 0);
+    if (this.framesUntilLock === null && onGround) {
+      this.framesUntilLock = CONFIG.dropLockFrames;
     }
   }
 
@@ -130,11 +163,18 @@ class Board {
   /**
    * Rotate tetromino if valid
    */
-  rotate(tetromino: Tetromino, direction: Rotation): void {
-    const origRotation = tetromino.rotation;
-    tetromino.rotate(direction);
-    if (!this.isValid(tetromino, 0, 0)) {
-      tetromino.rotation = origRotation;
+  rotate(tetromino: Tetromino, direction: Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE): void {
+    const [validRotation, [dr, dc]] = this.isValidRotation(tetromino, direction);
+    if (validRotation) {
+      tetromino.rotate(direction);
+      tetromino.r += dr;
+      tetromino.c += dc;
+    }
+
+    // check if it's on the ground, if so, start the timer
+    const onGround = !this.isValidMovement(tetromino, 1, 0);
+    if (this.framesUntilLock === null && onGround) {
+      this.framesUntilLock = CONFIG.dropLockFrames;
     }
   }
 
@@ -161,26 +201,40 @@ class Board {
     this.hasHeld = true;
   }
 
-  isValid(tetromino: Tetromino, dr: number, dc: number): boolean {
+  isValidMovement(tetromino: Tetromino, dr: number, dc: number): boolean {
     const shape = tetromino.getShape();
-    for (let tet_r = 0; tet_r < shape.length; tet_r++) {
-      for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
-        if (!shape[tet_r][tet_c]) {
-          continue;
-        }
-        const board_r = tetromino.r + tet_r + dr;
-        const board_c = tetromino.c + tet_c + dc;
-        // No part of shape can be out of bounds
-        if (board_r >= CONFIG.rows || board_c < 0 || board_c >= CONFIG.cols) {
-          return false;
-        } else if (board_r < 0) {
-          // do nothing
-        } else if (this.arr[board_r][board_c]) {
-          return false;
-        }
+    const row = tetromino.r + dr;
+    const col = tetromino.c + dc;
+    return this.isValid(row, col, shape);
+  }
+
+  /**
+   * Checks whether the given rotation is valid.
+   * Performs wall kicks if necessary.
+   *
+   * Returns the tuple [isValid, [dr, dc]],
+   * where the tuple [dr, dc] gives the wall kick translation which made the rotation valid.
+   *
+   * If invalid, the returned translation defaults to [0, 0].
+   */
+  isValidRotation(tetromino: Tetromino, rotation: Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE): [boolean, [number, number]] {
+    const shape = tetromino.getRotation(rotation);
+    const row = tetromino.r;
+    const col = tetromino.c;
+
+    let tests: number[][];
+    if (tetromino.kind === "I") {
+      tests = WALLKICK_TESTS_I[tetromino.rotation][rotation];
+    } else {
+      tests = WALLKICK_TESTS[tetromino.rotation][rotation];
+    }
+
+    for (const [dr, dc] of tests) {
+      if (this.isValid(row + dr, col + dc, shape)) {
+        return [true, [dr, dc]];
       }
     }
-    return true;
+    return [false, [0, 0]];
   }
 
   placeCurTetromino(): void {
@@ -217,7 +271,7 @@ class Board {
         }
 
         if (this.arr[tetromino.r + tet_r][tetromino.c + tet_c] === 0) {
-          this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = color(TetrominoType[tetromino.kind].color);
+          this.arr[tetromino.r + tet_r][tetromino.c + tet_c] = color(TETROMINO_TYPE[tetromino.kind].color);
         } else {
           throw Error(
             `Invalid tetromino (${tetromino.kind}) placement:`
@@ -243,11 +297,35 @@ class Board {
 
   getGhost(tetromino: Tetromino): Tetromino {
     let dr = 1;
-    while (tetromino.r + dr < this.arr.length && this.isValid(tetromino, dr, 0)) {
+    while (tetromino.r + dr < this.arr.length && this.isValidMovement(tetromino, dr, 0)) {
       dr++;
     }
     const tetCopy = tetromino.copy();
     tetCopy.r += dr - 1;
     return tetCopy;
+  }
+
+  /**
+   * Helper to test validity for a given shape at a specific coordinate.
+   */
+  private isValid(row: number, col: number, shape: number[][]): boolean {
+    for (let tet_r = 0; tet_r < shape.length; tet_r++) {
+      for (let tet_c = 0; tet_c < shape[tet_r].length; tet_c++) {
+        if (!shape[tet_r][tet_c]) {
+          continue;
+        }
+        const board_r = row + tet_r;
+        const board_c = col + tet_c;
+        // No part of shape can be out of bounds
+        if (board_r >= CONFIG.rows || board_c < 0 || board_c >= CONFIG.cols) {
+          return false;
+        } else if (board_r < 0) {
+          // do nothing
+        } else if (this.arr[board_r][board_c]) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }

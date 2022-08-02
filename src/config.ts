@@ -12,6 +12,7 @@ const CONFIG = {
   hint_alpha: 17,
 
   dropframes: 30,
+  dropLockFrames: 30,
   framerate: 30,
 
   aienabled: false,
@@ -20,6 +21,7 @@ const CONFIG = {
 
   weight_lineclears: 200,
   weight_holes: 300,
+  scale_unreachableholes: 1.5,
   scaled_holes: true,
   exp_holes: 0.66,
   weight_boardheight: 1,

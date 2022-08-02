@@ -10,7 +10,7 @@ const rotateFromState = (state: Rotation, rotation: Rotation): Rotation => {
 };
 
 class Tetromino {
-  kind: keyof typeof TetrominoType;
+  kind: keyof typeof TETROMINO_TYPE;
   rotation: Rotation;
   r: number;
   c: number;
@@ -22,7 +22,7 @@ class Tetromino {
    * @param c        Topleft col relative to arr
    * @param rotation current rotation value relative to spawn
    */
-  constructor(kind: keyof typeof TetrominoType, r: number, c: number, rotation: Rotation) {
+  constructor(kind: keyof typeof TETROMINO_TYPE, r: number, c: number, rotation: Rotation) {
     this.kind = kind;
     this.r = r;
     this.c = c;
@@ -34,7 +34,7 @@ class Tetromino {
   }
 
   drawat(r: number, c: number, scale: number, alpha?: number): void {
-    const tetColor = TetrominoType[this.kind].color;
+    const tetColor = TETROMINO_TYPE[this.kind].color;
     stroke(CONFIG.tetromino_stroke);
     if (alpha) {
       const colorWithAlpha = color(tetColor);
@@ -73,8 +73,26 @@ class Tetromino {
 
   getRotation(direction: Rotation): number[][] {
     // copy shape
-    const shape = TetrominoType[this.kind].shape as unknown as number[][];
+    const shape = TETROMINO_TYPE[this.kind].shape as unknown as number[][];
     return this.getRotationFromShape(shape, rotateFromState(this.rotation, direction));
+  }
+
+  copy(): Tetromino {
+    return new Tetromino(this.kind, this.r, this.c, this.rotation);
+  }
+
+  reset(): void {
+    this.rotation = Rotation.SPAWN;
+    this.r = -2;
+    this.c = this.kind === "O" ? 4 : 3;
+  }
+
+  toString() {
+    return `${this.kind}/${this.r}/${this.c}/${this.rotation}`;
+  }
+
+  rotate(direction: Rotation) {
+    this.rotation = rotateFromState(this.rotation, direction);
   }
 
   private getRotationFromShape(shape: number[][], direction: Rotation) {
@@ -101,30 +119,12 @@ class Tetromino {
     }
     return newShape;
   }
-
-  copy(): Tetromino {
-    return new Tetromino(this.kind, this.r, this.c, this.rotation);
-  }
-
-  reset(): void {
-    this.rotation = Rotation.SPAWN;
-    this.r = -2;
-    this.c = this.kind === "O" ? 4 : 3;
-  }
-
-  toString() {
-    return `${this.kind}/${this.r}/${this.c}/${this.rotation}`;
-  }
-
-  rotate(direction: Rotation) {
-    this.rotation = rotateFromState(this.rotation, direction);
-  }
 }
 
 /**
  * All possible tetromino types, along with their corresponding shapes and colors.
  */
-const TetrominoType = {
+const TETROMINO_TYPE = {
   I: {
     shape: [[0, 0, 0, 0],
       [1, 1, 1, 1],
@@ -169,3 +169,144 @@ const TetrominoType = {
     color: "#EF2029"
   }
 } as const;
+
+/**
+ * Translation tests for wall kick implementation.
+ *
+ * First level is the current rotation state,
+ * second level is which direction we're rotating (i.e. CLOCKWISE vs COUNTERCLOCKWISE).
+ * The resulting array gives a list of pairs (dr, dc) to translate by, to be tested in order.
+ */
+const WALLKICK_TESTS: { [state in Rotation]: { [rot in Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE]: number[][] } } = {
+  [Rotation.SPAWN]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, -1],
+      [-1, -1],
+      [2, 0],
+      [2, -1]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, 1],
+      [-1, 1],
+      [2, 0],
+      [2, 1]
+    ]
+  },
+  [Rotation.CLOCKWISE]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+      [-2, 0],
+      [-2, 1]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+      [-2, 0],
+      [-2, 1]
+    ]
+  },
+  [Rotation.FLIP]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, 1],
+      [-1, 1],
+      [2, 0],
+      [2, 1]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, -1],
+      [-1, -1],
+      [2, 0],
+      [2, -1]
+    ]
+  },
+  [Rotation.COUNTERCLOCKWISE]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, -1],
+      [1, -1],
+      [-2, 0],
+      [-2, -1]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, -1],
+      [1, -1],
+      [-2, 0],
+      [-2, -1]
+    ]
+  }
+};
+
+const WALLKICK_TESTS_I: { [state in Rotation]: { [rot in Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE]: number[][] } } = {
+  [Rotation.SPAWN]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, -2],
+      [0, 1],
+      [1, -2],
+      [-2, 1]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, -1],
+      [0, 2],
+      [-2, -1],
+      [1, 2]
+    ]
+  },
+  [Rotation.CLOCKWISE]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, -1],
+      [0, 2],
+      [-2, -1],
+      [1, 2]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, 2],
+      [0, -1],
+      [-1, 2],
+      [2, -1]
+    ]
+  },
+  [Rotation.FLIP]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, 2],
+      [0, -1],
+      [-1, 2],
+      [2, -1]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, 1],
+      [0, -2],
+      [2, 1],
+      [-1, -2]
+    ]
+  },
+  [Rotation.COUNTERCLOCKWISE]: {
+    [Rotation.CLOCKWISE]: [
+      [0, 0],
+      [0, 1],
+      [0, -2],
+      [2, 1],
+      [-1, -2]
+    ],
+    [Rotation.COUNTERCLOCKWISE]: [
+      [0, 0],
+      [0, -2],
+      [0, 1],
+      [1, -2],
+      [-2, 1]
+    ]
+  }
+};

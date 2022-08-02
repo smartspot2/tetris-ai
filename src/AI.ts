@@ -1,5 +1,5 @@
 interface ExecuteType {
-  steps: Map<number, AIStep[]>;
+  steps: [number, AIStep][];
   tet: Tetromino;
   row: number;
   col: number;
@@ -52,22 +52,33 @@ class AI {
     }
     this.framesUntilNext = CONFIG.aidelay;
 
-    // only execute subsections <= current row position
-    const curstepnumber = (CONFIG.aidelay < 0) ? 99 : this.board.curTetromino.r;
-    let nextStep = null;
-    let nextStepNumber = 99;
-    for (const [idx, step] of this.toExecute.steps.entries()) {
-      // get earliest
-      if (step.length > 0 && idx <= curstepnumber && idx <= nextStepNumber) {
-        nextStep = step;
-        nextStepNumber = idx;
-      }
-    }
-    if (nextStep == null || nextStepNumber === 99) {
+    if (this.toExecute.steps.length === 0) {
+      this.toExecute = null;
       return;
     }
-    const cmd = nextStep.shift();
-    switch (cmd) {
+
+    // only execute subsections <= current row position
+    let nextStepNumber, nextStep;
+    if (CONFIG.aidelay < 0) {
+      [nextStepNumber, nextStep] = this.toExecute.steps.shift()!;
+    } else {
+      const curStepNumber = this.board.curTetromino.r;
+      do {
+        [nextStepNumber, nextStep] = this.toExecute.steps[0];
+        if (nextStepNumber > curStepNumber) {
+          return;  // don't do anything yet this turn
+        } else {
+          // execute this step; pop the first element
+          this.toExecute.steps.shift();
+        }
+        if (this.toExecute.steps.length === 0) {
+          break;  // nothing left to loop with, so stop
+        }
+        // take the next step if it was DOWN and we passed it already
+      } while (nextStep === AIStep.DOWN && curStepNumber !== nextStepNumber);
+    }
+
+    switch (nextStep) {
       case AIStep.RIGHT:
         this.board.move(this.board.curTetromino, 0, 1);
         break;
@@ -95,10 +106,7 @@ class AI {
     }
 
     if (this.toExecute !== null) {
-      if (nextStep.length === 0) {
-        this.toExecute.steps.delete(nextStepNumber);
-      }
-      if (this.toExecute.steps.size === 0) {
+      if (this.toExecute.steps.length === 0) {
         this.toExecute = null;
       }
 
@@ -153,7 +161,8 @@ class AI {
         nextStart = altTet.copy();
         nextAlt = nextTet.copy();
       }
-      const nextPosList = this.bfsEndPositions(nextStart, nextAlt);  // get all next end positions
+      // get all next end positions; no need to store the steps here
+      const nextPosList = this.bfsEndPositions(nextStart, nextAlt, false);
       const nextScoreList = nextPosList.map(nextPos => this.getScore(nextPos));
 
       // restore the board
@@ -186,7 +195,7 @@ class AI {
     const curArr = this.board.arr.map(a => a.slice());
     this.board.arr = prevArr;
     return {
-      steps: new Map(),
+      steps: [],
       row: finalTet.r,
       col: finalTet.c,
       arr: curArr,
@@ -198,39 +207,22 @@ class AI {
    * Run BFS to find a list of all possible end positions,
    * with the shortest paths to get there.
    */
-  bfsEndPositions(curTet: Tetromino, nextTet?: Tetromino): ExecuteType[] {
+  bfsEndPositions(curTet: Tetromino, nextTet?: Tetromino, storeSteps: boolean = true): ExecuteType[] {
     const possibilities: ExecuteType[] = [];
     const visited = new Set<string>();
     const visited_dropped = new Set<string>();
 
-    const cloneSteps = (steps: Map<number, AIStep[]>): Map<number, AIStep[]> => {
-      const cloned = new Map<number, AIStep[]>();
-      steps.forEach((lst, idx) => {
-        cloned.set(idx, lst.slice());
-      });
-      return cloned;
-    };
-
-    const pushStep = (steps: Map<number, AIStep[]>, row: number, step: AIStep) => {
-      if (steps.has(row)) {
-        steps.get(row)?.push(step);
-      } else {
-        steps.set(row, [step]);
-      }
-    };
-
     interface BFSState {
       cur: Tetromino;
-      prevSteps: Map<number, AIStep[]>;
+      prevSteps: [number, AIStep][];
     }
 
-    const queue: BFSState[] = [{ cur: curTet.copy(), prevSteps: new Map() }];
+    const queue: BFSState[] = [{ cur: curTet.copy(), prevSteps: [] }];
 
     // add alternate start
     if (nextTet !== undefined) {
-      const holdSteps = new Map();
-      holdSteps.set(-999, [AIStep.HOLD]);
-      queue.push({ cur: nextTet.copy(), prevSteps: holdSteps });
+      const holdSteps: [number, AIStep][] = [[-999, AIStep.HOLD]];
+      queue.push({ cur: nextTet.copy(), prevSteps: storeSteps ? holdSteps : [] });
     }
 
     // breadth-first search for all possible end positions
@@ -240,12 +232,9 @@ class AI {
       // drop
 
       const dropped = this.board.getGhost(cur);
-      if (!visited_dropped.has(dropped.toString()) && this.board.isValid(dropped, 0, 0)) {
+      if (!visited_dropped.has(dropped.toString()) && this.board.isValidMovement(dropped, 0, 0)) {
         // haven't already tried dropping the tetromino here
-        const finalSteps = cloneSteps(prevSteps);
-        pushStep(finalSteps, cur.r, AIStep.DROP);
         visited_dropped.add(dropped.toString());
-        // visited.set(dropped.toString(), countSteps(finalSteps));
 
         // place on board and save steps
         const prevArr = this.board.arr.map(a => a.slice());
@@ -253,11 +242,17 @@ class AI {
         const curArr = this.board.arr;
         this.board.arr = prevArr;
 
+        let finalSteps: [number, AIStep][] = [];
+        if (storeSteps) {
+          finalSteps = prevSteps.slice();
+          finalSteps.push([cur.r, AIStep.DROP]);
+        }
+
         const potential: ExecuteType = {
           arr: curArr,
           row: dropped.r,
           col: dropped.c,
-          steps: finalSteps,
+          steps: storeSteps ? finalSteps : [],
           tet: dropped
         };
         possibilities.push(potential);
@@ -265,69 +260,75 @@ class AI {
 
       // rotations
 
-      for (const rotation of [Rotation.CLOCKWISE, Rotation.COUNTERCLOCKWISE]) {
+      const possibleRotations = [Rotation.CLOCKWISE, Rotation.COUNTERCLOCKWISE] as const;
+      for (const rotation of possibleRotations) {
         const step = rotation === Rotation.CLOCKWISE ? AIStep.CLOCKWISE : AIStep.COUNTERCLOCKWISE;
         const rotateTet = cur.copy();
-        rotateTet.rotate(rotation);
-        if (this.board.isValid(rotateTet, 0, 0)) {
+        const [validRotation, [dr, dc]] = this.board.isValidRotation(rotateTet, rotation);
+        if (validRotation) {
           // valid rotation
-          let next = rotateTet.copy();
-          if (!visited.has(next.toString())) {
-            const nextSteps = cloneSteps(prevSteps);
-            pushStep(nextSteps, cur.r, step);
-            queue.push({ cur: next, prevSteps: nextSteps });
-            visited.add(next.toString());
-          }
-
-          // attempt to rotate again
           rotateTet.rotate(rotation);
-          if (this.board.isValid(rotateTet, 0, 0)) {
-            // valid rotation
-            next = rotateTet.copy();
-            if (!visited.has(next.toString())) {
-              const nextSteps = cloneSteps(prevSteps);
-              pushStep(nextSteps, cur.r, step);
-              pushStep(nextSteps, cur.r, step);
+          rotateTet.r += dr;
+          rotateTet.c += dc;
+          const next = rotateTet.copy();
+          if (!visited.has(next.toString())) {
+            if (storeSteps) {
+              const nextSteps = prevSteps.slice();
+              nextSteps.push([cur.r, step]);
               queue.push({ cur: next, prevSteps: nextSteps });
-              visited.add(next.toString());
+            } else {
+              queue.push({ cur: next, prevSteps: [] });
             }
+            visited.add(next.toString());
           }
         }
       }
 
       // movement
 
-      if (this.board.isValid(cur, 0, -1)) {
+      if (this.board.isValidMovement(cur, 0, -1)) {
         // can move left
         const next = cur.copy();
         next.c -= 1;
         if (!visited.has(next.toString())) {
-          const nextSteps = cloneSteps(prevSteps);
-          pushStep(nextSteps, cur.r, AIStep.LEFT);
-          queue.push({ cur: next, prevSteps: nextSteps });
+          if (storeSteps) {
+            const nextSteps = prevSteps.slice();
+            nextSteps.push([cur.r, AIStep.LEFT]);
+            queue.push({ cur: next, prevSteps: nextSteps });
+          } else {
+            queue.push({ cur: next, prevSteps: [] });
+          }
           visited.add(next.toString());
         }
       }
-      if (this.board.isValid(cur, 0, 1)) {
+      if (this.board.isValidMovement(cur, 0, 1)) {
         // can move right
         const next = cur.copy();
         next.c += 1;
         if (!visited.has(next.toString())) {
-          const nextSteps = cloneSteps(prevSteps);
-          pushStep(nextSteps, cur.r, AIStep.RIGHT);
-          queue.push({ cur: next, prevSteps: nextSteps });
+          if (storeSteps) {
+            const nextSteps = prevSteps.slice();
+            nextSteps.push([cur.r, AIStep.RIGHT]);
+            queue.push({ cur: next, prevSteps: nextSteps });
+          } else {
+            queue.push({ cur: next, prevSteps: [] });
+          }
           visited.add(next.toString());
         }
       }
 
-      if (this.board.isValid(cur, 1, 0)) {
+      if (this.board.isValidMovement(cur, 1, 0)) {
         // can move down
         const next = cur.copy();
         next.r += 1;
         if (!visited.has(next.toString())) {
-          const nextSteps = cloneSteps(prevSteps);
-          pushStep(nextSteps, cur.r, AIStep.DOWN);
-          queue.push({ cur: next, prevSteps: nextSteps });
+          if (storeSteps) {
+            const nextSteps = prevSteps.slice();
+            nextSteps.push([cur.r, AIStep.DOWN]);
+            queue.push({ cur: next, prevSteps: nextSteps });
+          } else {
+            queue.push({ cur: next, prevSteps: [] });
+          }
           visited.add(next.toString());
         }
       }
@@ -369,14 +370,24 @@ class AI {
 
   getStatistics(potential: ExecuteType) {
     const stats: StatisticsType = {} as StatisticsType;
-    const arr = potential.arr;
+    const potentialArr = potential.arr;
     // line clears
     stats.lineclears = 0;
     for (let r = 0; r < CONFIG.rows; r++) {
-      if (!arr[r].includes(0)) {
+      if (!potentialArr[r].includes(0)) {
         stats.lineclears += 1;
       }
     }
+
+    // make copy of array with lines cleared; use this for rest of stats
+    const arr = potentialArr.map(row => row.slice());
+    for (let r = 0; r < CONFIG.rows; r++) {
+      if (!arr[r].includes(0)) {
+        arr.splice(r, 1);
+        arr.splice(0, 0, Array(CONFIG.cols).fill(0));
+      }
+    }
+
     // holes
     stats.totalholes = 0;
     stats.scaledholes = 0;
