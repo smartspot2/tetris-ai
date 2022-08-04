@@ -1,6 +1,7 @@
 import { Rotation, TETROMINO_TYPE } from "./TetrominoConstants";
 import { CONFIG } from "./config";
 import p5 from "p5";
+import Board from "./Board";
 
 const rotateFromState = (state: Rotation, rotation: Rotation): Rotation => {
   return (state + rotation) % 4 as Rotation;
@@ -93,6 +94,23 @@ export default class Tetromino {
 
   rotate(direction: Rotation) {
     this.rotation = rotateFromState(this.rotation, direction);
+  }
+
+  /**
+   * Rotates this tetromino in the given direction if it is valid.
+   *
+   * @param board     reference to the board to determine validity
+   * @param direction direction to rotate in
+   * @return whether the rotation is valid (i.e. whether the rotation was performed)
+   */
+  rotateValid(board: Board, direction: Rotation.CLOCKWISE | Rotation.COUNTERCLOCKWISE): boolean {
+    const [isValid, [dr, dc]] = board.isValidRotation(this, direction);
+    if (isValid) {
+      this.rotate(direction);
+      this.r += dr;
+      this.c += dc;
+    }
+    return isValid;
   }
 
   private getRotationFromShape(shape: number[][], direction: Rotation) {

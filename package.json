@@ -4,12 +4,12 @@
   "description": "A Tetris AI built with p5.js",
   "source": "./index.html",
   "scripts": {
-    "start": "parcel",
+    "start": "parcel serve",
     "prebuild-dev": "shx rm -rf dist",
     "build-dev": "parcel build --no-optimize --public-url ./",
     "prebuild": "shx rm -rf dist",
     "build": "parcel build --public-url ./ --no-scope-hoist",
-    "push-gh-pages": "push-dir --dir=dist --branch=gh-pages --cleanup --verbase"
+    "push-gh-pages": "npm run build && push-dir --dir=dist --branch=gh-pages --cleanup --verbase"
   },
   "devDependencies": {
     "@types/p5": "^1.4.2",

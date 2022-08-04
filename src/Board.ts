@@ -5,6 +5,12 @@ import { CONFIG } from "./config";
 import { Rotation, TETROMINO_TYPE, WALLKICK_TESTS, WALLKICK_TESTS_I } from "./TetrominoConstants";
 import AI from "./AI";
 
+export enum PressedKey {
+  LEFT,
+  RIGHT,
+  DOWN
+}
+
 export default class Board {
   public arr: (0 | p5.Color)[][];
   public ai: AI;
@@ -13,7 +19,8 @@ export default class Board {
   nextTetromino: Tetromino;
   heldTetromino: Tetromino | null;
   lineClears: number;
-
+  pressedKey: PressedKey | null = null;
+  framesUntilDrop: number;
   private readonly _p: p5;
   private readonly x: number;
   private readonly y: number;
@@ -21,9 +28,12 @@ export default class Board {
   private readonly h: number;
   private readonly tileSize: number;
   private curBag: Tetromino[] = [];
-  private framesUntilDrop: number;
   private framesUntilLock: number | null;
   private hasHeld: boolean;
+  // delay from first keypress to the next autoshift; non-null if key is pressed
+  private framesUntilRepeatStart: number | null;
+  // delay between autoshifts
+  private framesUntilRepeat: number | null;
 
   constructor(p: p5, x: number, y: number, w: number, h: number) {
     this._p = p;
@@ -43,7 +53,7 @@ export default class Board {
     this.nextTetromino = this.curBag.pop()!;
     this.heldTetromino = null;
 
-    this.framesUntilDrop = CONFIG.dropframes;
+    this.framesUntilDrop = CONFIG.dropFrames;
     this.framesUntilLock = -1;
     this.hasHeld = false;
     this.lineClears = 0;
@@ -63,12 +73,12 @@ export default class Board {
   draw(): void {
     this.drawBoard();
 
-    if (CONFIG.aienabled && this.ai.toExecute) {
+    if (CONFIG.aiEnabled && this.ai.toExecute) {
       const aitarget = this.ai.toExecute.tet;
       aitarget.draw(CONFIG.aitarget_alpha);
-    } else if (!CONFIG.aienabled && CONFIG.showhint) {
+    } else if (!CONFIG.aiEnabled && CONFIG.showHint) {
       if (this.ai.toExecute == null) {
-        this.ai.toExecute = this.ai.selectDest();
+        this.ai.toExecute = this.ai.selectDest(Infinity);
       }
       this.ai.toExecute.tet.draw(CONFIG.hint_alpha);
     }
@@ -77,6 +87,33 @@ export default class Board {
     this.nextTetromino.drawat(1.5, CONFIG.cols + 2, 0.75);
     if (this.heldTetromino) {
       this.heldTetromino.drawat(1.5, -2 - 3 * 0.75, 0.75);
+    }
+
+    // check for repeat
+    if (this.framesUntilRepeatStart !== null) {
+      // key pressed
+      if (this.framesUntilRepeatStart > 0) {
+        this.framesUntilRepeatStart--;
+      } else {
+        // start repeating
+        if (this.framesUntilRepeat > 0) {
+          this.framesUntilRepeat--;
+        } else {
+          this.framesUntilRepeat = CONFIG.repeatDelay;
+
+          switch (this.pressedKey) {
+            case PressedKey.LEFT:
+              this.move(this.curTetromino, 0, -1);
+              break;
+            case PressedKey.RIGHT:
+              this.move(this.curTetromino, 0, 1);
+              break;
+            case PressedKey.DOWN:
+              this.move(this.curTetromino, 1, 0);
+              break;
+          }
+        }
+      }
     }
 
     if (!this.gameOver) {
@@ -95,20 +132,21 @@ export default class Board {
           this.placeCurTetromino();
           // reset timers
           this.framesUntilLock = null;
-          this.framesUntilDrop = CONFIG.dropframes;
+          this.framesUntilDrop = CONFIG.dropFrames;
         }
       } else {
         // not currently on the ground; decrease gravity timer
-        this.framesUntilDrop--;
-        if (this.framesUntilDrop <= 0) {
-          this.framesUntilDrop = CONFIG.dropframes;
+        if (this.framesUntilDrop > 0) {
+          this.framesUntilDrop--;
+        } else {
+          this.framesUntilDrop = CONFIG.dropFrames;
 
           if (this.isValidMovement(this.curTetromino, 1, 0)) {
             this.curTetromino.moveDown();
 
             // check if it's on the ground; if so, start lock timer
             if (!this.isValidMovement(this.curTetromino, 1, 0)) {
-              this.framesUntilDrop = CONFIG.dropLockFrames;
+              this.framesUntilLock = CONFIG.dropLockFrames;
             }
           } else {
             this.placeCurTetromino();
@@ -163,6 +201,9 @@ export default class Board {
     const onGround = !this.isValidMovement(tetromino, 1, 0);
     if (this.framesUntilLock === null && onGround) {
       this.framesUntilLock = CONFIG.dropLockFrames;
+    } else if (this.framesUntilLock !== null && !onGround) {
+      // stop the timer and go back to gravity
+      this.framesUntilLock = null;
     }
   }
 
@@ -187,6 +228,9 @@ export default class Board {
     const onGround = !this.isValidMovement(tetromino, 1, 0);
     if (this.framesUntilLock === null && onGround) {
       this.framesUntilLock = CONFIG.dropLockFrames;
+    } else if (this.framesUntilLock !== null && !onGround) {
+      // stop the timer and go back to gravity
+      this.framesUntilLock = null;
     }
   }
 
@@ -209,7 +253,7 @@ export default class Board {
         this.refillBag();
       }
     }
-    this.framesUntilDrop = 1;
+    this.framesUntilDrop = 0;
     this.hasHeld = true;
   }
 
@@ -258,7 +302,7 @@ export default class Board {
     if (!this.curBag.length) {
       this.refillBag();
     }
-    this.framesUntilDrop = 1;
+    this.framesUntilDrop = 0;
     this.hasHeld = false;  // can hold again
 
     // Check validity of new tetromino/check for gameover
@@ -315,6 +359,18 @@ export default class Board {
     const tetCopy = tetromino.copy();
     tetCopy.r += dr - 1;
     return tetCopy;
+  }
+
+  setPressed(key: PressedKey | null) {
+    if (key === null) {
+      this.pressedKey = null;
+      this.framesUntilRepeatStart = null;
+      this.framesUntilRepeat = 0;
+    } else {
+      this.pressedKey = key;
+      this.framesUntilRepeatStart = CONFIG.autoShiftDelay;
+      this.framesUntilRepeat = 0;
+    }
   }
 
   /**

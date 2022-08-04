@@ -1,4 +1,4 @@
-import Board from "./Board";
+import Board, { PressedKey } from "./Board";
 import { CONFIG, MINSETTINGS } from "./config";
 import { Rotation } from "./TetrominoConstants";
 
@@ -11,7 +11,7 @@ const p5Instance = new p5(p => {
     const canvas = p.createCanvas(800, 800);
     canvas.parent("sketch");
 
-    p.frameRate(CONFIG.framerate);
+    p.frameRate(CONFIG.frameRate);
 
     CONFIG.board_tl = { x: 0.5 * (p.width - CONFIG.board_w), y: 0.5 * (p.height - CONFIG.board_h) };
 
@@ -45,12 +45,15 @@ const p5Instance = new p5(p => {
       return;
     }
     if (p.keyCode === p.LEFT_ARROW) {
+      board.setPressed(PressedKey.LEFT);
       board.move(board.curTetromino, 0, -1);
     } else if (p.keyCode === p.RIGHT_ARROW) {
+      board.setPressed(PressedKey.RIGHT);
       board.move(board.curTetromino, 0, 1);
     } else if (p.key === " ") {
       board.moveDrop(board.curTetromino);
     } else if (p.keyCode === p.DOWN_ARROW) {
+      board.setPressed(PressedKey.DOWN);
       board.move(board.curTetromino, 1, 0);
     } else if (p.keyCode === p.UP_ARROW) {
       board.rotate(board.curTetromino, Rotation.CLOCKWISE);
@@ -60,9 +63,13 @@ const p5Instance = new p5(p => {
       board.hold();
     }
 
-    if (!CONFIG.aienabled) {
+    if (!CONFIG.aiEnabled) {
       board.ai.displayScore(board.ai.getPotential(board.curTetromino));
     }
+  };
+
+  p.keyReleased = () => {
+    board.setPressed(null);
   };
 
   function resetBoard() {
@@ -77,25 +84,15 @@ const p5Instance = new p5(p => {
   // Config settings
 
   function toggleAI() {
-    CONFIG.aienabled = !CONFIG.aienabled;
-    // console.info('AI toggled; now ' + CONFIG.aienabled);
-    // Toggle other AI inputs
-    if (CONFIG.aienabled) {
-      document.getElementById("ai-delay-input")?.removeAttribute("disabled");
-      document.getElementById("ai-parallel-input")?.removeAttribute("disabled");
-    } else {
-      document.getElementById("ai-delay-input")?.setAttribute("disabled", "");
-      document.getElementById("ai-parallel-input")?.setAttribute("disabled", "");
-    }
+    CONFIG.aiEnabled = !CONFIG.aiEnabled;
   }
 
   function toggleShowHint() {
-    CONFIG.showhint = !CONFIG.showhint;
-    // console.info('Show hint toggled; now ' + CONFIG.showhint);
+    CONFIG.showHint = !CONFIG.showHint;
   }
 
   function toggleAIParallel() {
-    CONFIG.aiparallel = !CONFIG.aiparallel;
+    CONFIG.aiParallel = !CONFIG.aiParallel;
   }
 
 
@@ -109,15 +106,17 @@ const p5Instance = new p5(p => {
       el.value = String(MINSETTINGS[setting]);
     }
     CONFIG[setting] = Number(val);
-    if (setting === "framerate") {
-      p.frameRate(CONFIG.framerate);
+    if (setting === "frameRate") {
+      p.frameRate(CONFIG.frameRate);
     }
-    // console.info(setting + ' set to: ' + el.value);
     // Update statistics
-    if (CONFIG.aienabled && board.ai.toExecute) {
+    if (CONFIG.aiEnabled && board.ai.toExecute) {
       board.ai.displayScore(board.ai.toExecute);
     } else {
       board.ai.displayScore(board.ai.getPotential(board.curTetromino));
+    }
+    if (CONFIG.aiEnabled && (["aiDelay", "dropFrames", "dropLockFrames"].includes(setting))) {
+      board.ai.toExecute = board.ai.selectDest(board.framesUntilDrop);
     }
   }
 
@@ -163,9 +162,10 @@ const p5Instance = new p5(p => {
   document.getElementById("show-hint-input")?.addEventListener("click", () => toggleShowHint());
   document.getElementById("ai-parallel-input")?.addEventListener("click", () => toggleAIParallel());
 
-  document.getElementById("ai-delay-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "aidelay"));
-  document.getElementById("frame-rate-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "framerate"));
-  document.getElementById("drop-frames-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "dropframes"));
+  document.getElementById("ai-delay-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "aiDelay"));
+  document.getElementById("frame-rate-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "frameRate"));
+  document.getElementById("drop-frames-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "dropFrames"));
+  document.getElementById("lock-frames-input")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "dropLockFrames"));
   document.getElementById("weight-line-clears")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_lineclears"));
   document.getElementById("weight-holes")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_holes"));
   document.getElementById("weight-board-height")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_boardheight"));

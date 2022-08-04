@@ -6,34 +6,38 @@ import { Rotation, TETROMINO_TYPE } from "./TetrominoConstants";
 import Parallel from "paralleljs";
 import p5 from "p5";
 
+interface Step {
+  step: AIStep;
+  stepNumber: number;
+}
+
 interface ExecuteType {
-  steps: [number, AIStep][];
+  steps: Step[];
   tet: Tetromino;
   row: number;
   col: number;
   arr: (0 | p5.Color)[][];
 }
 
-interface ParallelExecuteType {
-  steps: [number, AIStep][];
+type ParallelExecuteType = Omit<ExecuteType, "tet"> & {
   tet: {
     kind: keyof typeof TETROMINO_TYPE,
     rotation: Rotation
   };
-  row: number;
-  col: number;
-  arr: (0 | p5.Color)[][];
 }
 
 interface StatisticsType {
-  lineclears: number;
-  totalholes: number;
-  scaledholes: number;
-  boardheight: number;
-  scaledboardheight: number;
-  placementheight: number;
-  scaledplacementheight: number;
-  avgheightdiff: number;
+  lineClears: number;
+  totalHoles: number;
+  scaledHoles: number;
+  boardHeight: number;
+  scaledBoardHeight: number;
+  placementHeight: number;
+  scaledPlacementHeight: number;
+  avgHeightDiff: number;
+  rowFlips: number;
+  colFlips: number;
+  deepestWell: number;
 }
 
 enum AIStep {
@@ -50,28 +54,30 @@ export default class AI {
   toExecute: ExecuteType | null;
   private readonly _p: p5;
   private framesUntilNext: number;
-  private board: Board;
+  private readonly board: Board;
 
   constructor(p: p5, board: Board) {
     this._p = p;
     this.board = board;
     this.toExecute = null;
 
-    this.framesUntilNext = CONFIG.aidelay;
+    this.framesUntilNext = CONFIG.aiDelay;
   }
 
   aistep() {
-    if (!CONFIG.aienabled) {
+    if (!CONFIG.aiEnabled) {
       return;
     }
     if (!this.toExecute) {
-      this.toExecute = this.selectDest();
+      this.framesUntilNext = CONFIG.aiDelay;
+      this.toExecute = this.selectDest(this.board.framesUntilDrop);
       this.displayScore(this.toExecute);
     }
-    if (this.framesUntilNext-- > 0) {
+    if (this.framesUntilNext > 0) {
+      this.framesUntilNext--;
       return;
     }
-    this.framesUntilNext = CONFIG.aidelay;
+    this.framesUntilNext = CONFIG.aiDelay;
 
     if (this.toExecute.steps.length === 0) {
       this.toExecute = null;
@@ -80,12 +86,12 @@ export default class AI {
 
     // only execute subsections <= current row position
     let nextStepNumber, nextStep;
-    if (CONFIG.aidelay < 0) {
-      [nextStepNumber, nextStep] = this.toExecute.steps.shift()!;
+    const curStepNumber = this.board.curTetromino.r;
+    if (CONFIG.aiDelay < 0) {
+      ({ step: nextStep, stepNumber: nextStepNumber } = this.toExecute.steps.shift()!);
     } else {
-      const curStepNumber = this.board.curTetromino.r;
       do {
-        [nextStepNumber, nextStep] = this.toExecute.steps[0];
+        ({ step: nextStep, stepNumber: nextStepNumber } = this.toExecute.steps[0]);
         if (nextStepNumber > curStepNumber) {
           return;  // don't do anything yet this turn
         } else {
@@ -131,14 +137,14 @@ export default class AI {
         this.toExecute = null;
       }
 
-      // Recurse to do all steps if aidelay = -1
-      if (CONFIG.aidelay === -1) {
+      // Recurse to do all steps if aiDelay = -1
+      if (CONFIG.aiDelay === -1) {
         this.aistep();
       }
     }
   }
 
-  getbestlist() {
+  getbestlist(initialDropFrames: number) {
     // starting values of the current and next tetrominos
     const curTet = this.board.curTetromino.copy();
     let altTet: Tetromino;
@@ -150,14 +156,14 @@ export default class AI {
       altTet = this.board.nextTetromino.copy();
     }
     // get all possible end positions
-    let posList = this.bfsEndPositions(curTet.copy(), altTet.copy());
+    let posList = this.bfsEndPositions(curTet.copy(), altTet.copy(), initialDropFrames);
 
     // filter to only consider the best options
     let scoreList = posList.map(pos => this.getScore(pos));
     const sortedScoreList = scoreList.slice();
     sortedScoreList.sort((a, b) => b - a);
     // we can afford to go through more if we parallelize
-    const percentile = CONFIG.aiparallel ? Math.floor(scoreList.length / 2) : Math.floor(scoreList.length / 4);
+    const percentile = CONFIG.aiParallel ? Math.floor(scoreList.length / 2) : Math.floor(scoreList.length / 4);
     let cutoff = sortedScoreList[percentile];
     if (cutoff === sortedScoreList[0]) {
       cutoff -= 1;  // include the top score if necessary
@@ -185,7 +191,7 @@ export default class AI {
         nextAlt = nextTet.copy();
       }
       // get all next end positions; no need to store the steps here
-      const nextPosList = this.bfsEndPositions(nextStart, nextAlt, false);
+      const nextPosList = this.bfsEndPositions(nextStart, nextAlt, CONFIG.dropFrames, false);
       const nextScoreList = nextPosList.map(nextPos => this.getScore(nextPos));
 
       // restore the board
@@ -194,7 +200,7 @@ export default class AI {
     };
 
     let nextScores: number[] = [];
-    if (CONFIG.aiparallel) {
+    if (CONFIG.aiParallel) {
       // convert to a serializable type, and the tetromino can be recreated in the parallel function
       const p = new Parallel(posList.map<ParallelExecuteType>(pos => ({
         steps: pos.steps,
@@ -228,8 +234,13 @@ export default class AI {
     return posList.filter((_pos, idx) => scoreList[idx] === maxScore || nextScores[idx] === maxScore);
   }
 
-  selectDest() {
-    const bestList = this.getbestlist();
+  /**
+   * Select the best destination, and return instructions to get to the destination.
+   *
+   * @param initialDropFrames frames left until the current piece drops
+   */
+  selectDest(initialDropFrames: number): ExecuteType {
+    const bestList = this.getbestlist(initialDropFrames);
     let toExecute: ExecuteType;
     if (bestList.length === 1) {
       toExecute = bestList[0];
@@ -261,29 +272,95 @@ export default class AI {
    * Run BFS to find a list of all possible end positions,
    * with the shortest paths to get there.
    */
-  bfsEndPositions(curTet: Tetromino, nextTet?: Tetromino, storeSteps: boolean = true): ExecuteType[] {
+  bfsEndPositions(curTet: Tetromino, nextTet: Tetromino | undefined, initialDropFrames: number, storeSteps: boolean = true): ExecuteType[] {
     const possibilities: ExecuteType[] = [];
     const visited = new Set<string>();
     const visited_dropped = new Set<string>();
 
     interface BFSState {
       cur: Tetromino;
-      prevSteps: [number, AIStep][];
+      prevSteps: Step[];
+      dropFrames: number;  // # frames until gravity applies
+      lockFrames: number | null;  // # frames until the piece is locked
     }
 
-    const queue: BFSState[] = [{ cur: curTet.copy(), prevSteps: [] }];
+    const queue: BFSState[] = [{ cur: curTet.copy(), prevSteps: [], dropFrames: initialDropFrames, lockFrames: null }];
 
     // add alternate start
     if (nextTet !== undefined) {
-      const holdSteps: [number, AIStep][] = [[-999, AIStep.HOLD]];
-      queue.push({ cur: nextTet.copy(), prevSteps: storeSteps ? holdSteps : [] });
+      const holdSteps: Step[] = [{ stepNumber: -999, step: AIStep.HOLD }];
+      queue.push({
+        cur: nextTet.copy(),
+        prevSteps: storeSteps ? holdSteps : [],
+        dropFrames: 0,
+        lockFrames: null
+      });
     }
+
+    // special first turn ai delay, starting from the current ai delay
+    // -1 because we want to count the current frame as well
+    let curAIDelay = this.framesUntilNext - 1;
 
     // breadth-first search for all possible end positions
     while (queue.length > 0) {
-      const { cur, prevSteps } = queue.shift()!;
+      const queueItem = queue.shift();
+      let cur = queueItem.cur;
+      const prevSteps = queueItem.prevSteps;
+      let nextDropFrames = queueItem.dropFrames;
+      let nextLockFrames = queueItem.lockFrames;
 
-      // drop
+      /* ----- apply gravity ----- */
+
+      let mustDrop = false;
+
+      // check lock state
+      const onGround = !this.board.isValidMovement(cur, 1, 0);
+      if (nextLockFrames === null && onGround) {
+        // start lock timer if it hasn't already
+        nextLockFrames = CONFIG.dropLockFrames;
+      } else if (nextLockFrames !== null && !onGround) {
+        // no longer on ground
+        nextLockFrames = null;
+      }
+
+      // process delay + 1 frames; delay is how many we missed, +1 for the current frame
+      cur = cur.copy();
+      for (let delayFrame = 0; delayFrame <= curAIDelay; delayFrame++) {
+        if (nextLockFrames != null) {
+          // on ground; use lock timer
+          if (nextLockFrames <= 0) {
+            mustDrop = true;
+            break;
+          } else {
+            nextLockFrames--;
+          }
+        } else {
+          // not on ground; use drop timer
+          if (nextDropFrames <= 0) {
+            // try to move down
+            if (this.board.isValidMovement(cur, 1, 0)) {
+              cur.r++;
+              nextDropFrames = CONFIG.dropFrames;
+              // check lock state
+              if (!this.board.isValidMovement(cur, 1, 0)) {
+                nextLockFrames = CONFIG.dropLockFrames;
+              }
+            } else {
+              mustDrop = true;
+              break;
+            }
+          } else {
+            nextDropFrames--;
+          }
+        }
+      }
+
+      // reset to the normal ai delay
+      if (curAIDelay !== CONFIG.aiDelay) {
+        curAIDelay = CONFIG.aiDelay;
+      }
+
+      /* ----- drop ----- */
 
       const dropped = this.board.getGhost(cur);
       if (!visited_dropped.has(dropped.toString()) && this.board.isValidMovement(dropped, 0, 0)) {
@@ -296,10 +373,10 @@ export default class AI {
         const curArr = this.board.arr;
         this.board.arr = prevArr;
 
-        let finalSteps: [number, AIStep][] = [];
-        if (storeSteps) {
-          finalSteps = prevSteps.slice();
-          finalSteps.push([cur.r, AIStep.DROP]);
+        const finalSteps: Step[] = prevSteps.slice();
+        // no need to add the DROP if gravity did it for us
+        if (storeSteps && !mustDrop) {
+          finalSteps.push({ stepNumber: cur.r, step: AIStep.DROP });
         }
 
         const potential: ExecuteType = {
@@ -312,33 +389,31 @@ export default class AI {
         possibilities.push(potential);
       }
 
-      // rotations
+      if (mustDrop) {
+        // can't do anything else
+        continue;
+      }
+
+      /* ----- rotations ----- */
 
       const possibleRotations = [Rotation.CLOCKWISE, Rotation.COUNTERCLOCKWISE] as const;
       for (const rotation of possibleRotations) {
         const step = rotation === Rotation.CLOCKWISE ? AIStep.CLOCKWISE : AIStep.COUNTERCLOCKWISE;
-        const rotateTet = cur.copy();
-        const [validRotation, [dr, dc]] = this.board.isValidRotation(rotateTet, rotation);
-        if (validRotation) {
-          // valid rotation
-          rotateTet.rotate(rotation);
-          rotateTet.r += dr;
-          rotateTet.c += dc;
-          const next = rotateTet.copy();
-          if (!visited.has(next.toString())) {
-            if (storeSteps) {
-              const nextSteps = prevSteps.slice();
-              nextSteps.push([cur.r, step]);
-              queue.push({ cur: next, prevSteps: nextSteps });
-            } else {
-              queue.push({ cur: next, prevSteps: [] });
-            }
-            visited.add(next.toString());
+        const next = cur.copy();
+        const validRotation = next.rotateValid(this.board, rotation);
+        if (validRotation && !visited.has(next.toString())) {
+          if (storeSteps) {
+            const nextSteps = prevSteps.slice();
+            nextSteps.push({ stepNumber: cur.r, step: step });
+            queue.push({ cur: next, prevSteps: nextSteps, dropFrames: nextDropFrames, lockFrames: nextLockFrames });
+          } else {
+            queue.push({ cur: next, prevSteps: [], dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           }
+          visited.add(next.toString());
         }
       }
 
-      // movement
+      /* ----- movement ----- */
 
       if (this.board.isValidMovement(cur, 0, -1)) {
         // can move left
@@ -347,14 +422,15 @@ export default class AI {
         if (!visited.has(next.toString())) {
           if (storeSteps) {
             const nextSteps = prevSteps.slice();
-            nextSteps.push([cur.r, AIStep.LEFT]);
-            queue.push({ cur: next, prevSteps: nextSteps });
+            nextSteps.push({ stepNumber: cur.r, step: AIStep.LEFT });
+            queue.push({ cur: next, prevSteps: nextSteps, dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           } else {
-            queue.push({ cur: next, prevSteps: [] });
+            queue.push({ cur: next, prevSteps: [], dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           }
           visited.add(next.toString());
         }
       }
+
       if (this.board.isValidMovement(cur, 0, 1)) {
         // can move right
         const next = cur.copy();
@@ -362,10 +438,10 @@ export default class AI {
         if (!visited.has(next.toString())) {
           if (storeSteps) {
             const nextSteps = prevSteps.slice();
-            nextSteps.push([cur.r, AIStep.RIGHT]);
-            queue.push({ cur: next, prevSteps: nextSteps });
+            nextSteps.push({ stepNumber: cur.r, step: AIStep.RIGHT });
+            queue.push({ cur: next, prevSteps: nextSteps, dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           } else {
-            queue.push({ cur: next, prevSteps: [] });
+            queue.push({ cur: next, prevSteps: [], dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           }
           visited.add(next.toString());
         }
@@ -378,10 +454,10 @@ export default class AI {
         if (!visited.has(next.toString())) {
           if (storeSteps) {
             const nextSteps = prevSteps.slice();
-            nextSteps.push([cur.r, AIStep.DOWN]);
-            queue.push({ cur: next, prevSteps: nextSteps });
+            nextSteps.push({ stepNumber: cur.r, step: AIStep.DOWN });
+            queue.push({ cur: next, prevSteps: nextSteps, dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           } else {
-            queue.push({ cur: next, prevSteps: [] });
+            queue.push({ cur: next, prevSteps: [], dropFrames: nextDropFrames, lockFrames: nextLockFrames });
           }
           visited.add(next.toString());
         }
@@ -398,27 +474,31 @@ export default class AI {
     let score = 0;
     const stats = this.getStatistics(potential);
     // check line clears
-    score += CONFIG.weight_lineclears * stats.lineclears;
+    score += CONFIG.weight_lineclears * stats.lineClears;
     // penalize holes
     if (CONFIG.scaled_holes) {
-      score -= CONFIG.weight_holes * stats.scaledholes;
+      score -= CONFIG.weight_holes * stats.scaledHoles;
     } else {
-      score -= CONFIG.weight_holes * stats.totalholes;
+      score -= CONFIG.weight_holes * stats.totalHoles;
     }
     // penalize height
     if (CONFIG.scaled_boardheight) {
-      score -= CONFIG.weight_boardheight * stats.scaledboardheight;
+      score -= CONFIG.weight_boardheight * stats.scaledBoardHeight;
     } else {
-      score -= CONFIG.weight_boardheight * stats.boardheight;
+      score -= CONFIG.weight_boardheight * stats.boardHeight;
     }
     // penalize placement height
     if (CONFIG.scaled_placementheight) {
-      score -= CONFIG.weight_placementheight * stats.scaledplacementheight;
+      score -= CONFIG.weight_placementheight * stats.scaledPlacementHeight;
     } else {
-      score -= CONFIG.weight_placementheight * stats.placementheight;
+      score -= CONFIG.weight_placementheight * stats.placementHeight;
     }
     // penalize wells
-    score -= CONFIG.weight_avgheightdiff * stats.avgheightdiff;
+    score -= CONFIG.weight_avgheightdiff * stats.avgHeightDiff;
+    score -= CONFIG.weight_deepestwell * stats.deepestWell;
+    // penalize high flips
+    score -= CONFIG.weight_rowflip * stats.rowFlips;
+    score -= CONFIG.weight_colflip * stats.colFlips;
     return score;
   }
 
@@ -426,10 +506,10 @@ export default class AI {
     const stats: StatisticsType = {} as StatisticsType;
     const potentialArr = potential.arr;
     // line clears
-    stats.lineclears = 0;
+    stats.lineClears = 0;
     for (let r = 0; r < CONFIG.rows; r++) {
       if (!potentialArr[r].includes(0)) {
-        stats.lineclears += 1;
+        stats.lineClears += 1;
       }
     }
 
@@ -443,8 +523,8 @@ export default class AI {
     }
 
     // holes
-    stats.totalholes = 0;
-    stats.scaledholes = 0;
+    stats.totalHoles = 0;
+    stats.scaledHoles = 0;
     for (let c = 0; c < CONFIG.cols; c++) {
       const firstTile = arr.findIndex(row => row[c] !== 0);
       if (firstTile === -1) {
@@ -454,18 +534,18 @@ export default class AI {
       for (let r = firstTile; r < CONFIG.rows; r++) {
         if (arr[r][c] === 0) {
           numHoles++;
-          stats.totalholes++;
+          stats.totalHoles++;
         }
       }
-      stats.scaledholes += Math.pow(numHoles, CONFIG.exp_holes);
+      stats.scaledHoles += Math.pow(numHoles, CONFIG.exp_holes);
     }
     // board height
     const firstRowWithTile = arr.findIndex(row => !row.every(item => item === 0));
-    stats.boardheight = CONFIG.rows - firstRowWithTile;
-    stats.scaledboardheight = Math.pow(stats.boardheight, CONFIG.exp_boardheight);
+    stats.boardHeight = CONFIG.rows - firstRowWithTile;
+    stats.scaledBoardHeight = Math.pow(stats.boardHeight, CONFIG.exp_boardheight);
     // placement height
-    stats.placementheight = CONFIG.rows - potential.row;
-    stats.scaledplacementheight = Math.pow(CONFIG.rows - potential.row, CONFIG.exp_placementheight);
+    stats.placementHeight = CONFIG.rows - potential.row;
+    stats.scaledPlacementHeight = Math.pow(CONFIG.rows - potential.row, CONFIG.exp_placementheight);
     // height distribution
     const heights = [];
     for (let c = 0; c < CONFIG.cols; c++) {
@@ -480,7 +560,42 @@ export default class AI {
     for (let c = 1; c < CONFIG.cols; c++) {
       sumHeightDiffs += Math.abs(heights[c] - heights[c - 1]);
     }
-    stats.avgheightdiff = sumHeightDiffs / (CONFIG.cols - 1);
+    stats.avgHeightDiff = sumHeightDiffs / (CONFIG.cols - 1);
+    // deepest well
+    let deepestWell = 0;
+    for (let c = 0; c < CONFIG.cols; c++) {
+      let leftHeight = c === 0 ? null : heights[c - 1];
+      let rightHeight = c === CONFIG.cols - 1 ? null : heights[c + 1];
+      if (leftHeight === null) {
+        leftHeight = rightHeight;
+      } else if (rightHeight === null) {
+        rightHeight = leftHeight;
+      }
+      const curHeight = heights[c];
+      if (leftHeight > curHeight && curHeight < rightHeight) {
+        // in a well
+        deepestWell = Math.max(deepestWell, Math.min(leftHeight - curHeight, rightHeight - curHeight));
+      }
+    }
+    stats.deepestWell = deepestWell;
+    // flips in empty/nonempty cells
+    let rowFlips = 0;
+    let colFlips = 0;
+    for (let r = 1; r < CONFIG.rows; r++) {
+      for (let c = 1; c < CONFIG.cols; c++) {
+        const curEmpty = arr[r][c] === 0;
+        const aboveEmpty = arr[r - 1][c] === 0;
+        const leftEmpty = arr[r][c - 1] === 0;
+        if (curEmpty ^ aboveEmpty) {  // XOR = 1 if different
+          colFlips++;
+        }
+        if (curEmpty ^ leftEmpty) {
+          rowFlips++;
+        }
+      }
+    }
+    stats.rowFlips = rowFlips;
+    stats.colFlips = colFlips;
     return stats;
   }
 
@@ -497,22 +612,30 @@ export default class AI {
     const HTMLplacementheightcalc = document.getElementById("stats-placement-height-calc")!;
     const HTMLavgheightdiff = document.getElementById("stats-avg-height-diff")!;
     const HTMLavgheightdiffcalc = document.getElementById("stats-avg-height-diff-calc")!;
+    const HTMLdeepestwell = document.getElementById("stats-deepest-well");
+    const HTMLdeepestwellcalc = document.getElementById("stats-deepest-well-calc");
+    const HTMLflips = document.getElementById("stats-flips");
+    const HTMLflipscalc = document.getElementById("stats-flips-calc");
     const score = this.board.ai.getScore(potential);
     const stats = this.board.ai.getStatistics(potential);
     HTMLscore.innerHTML = ((score < 0) ? "" : "&nbsp;") + (Math.round(score * 100) / 100);
-    HTMLlineclears.innerHTML = String(stats.lineclears);
-    HTMLlineclearscalc.innerHTML = String(Math.round(CONFIG.weight_lineclears * stats.lineclears * 100) / 100);
-    HTMLholes.innerHTML = String(Math.round((CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
-    HTMLholescalc.innerHTML = String(Math.round(-CONFIG.weight_holes *
-      (CONFIG.scaled_holes ? stats.scaledholes : stats.totalholes) * 100) / 100);
-    HTMLboardheight.innerHTML = String(Math.round(stats.boardheight * 100) / 100);
-    HTMLboardheightcalc.innerHTML = String(Math.round(-CONFIG.weight_boardheight *
-      (CONFIG.scaled_boardheight ? stats.scaledboardheight : stats.boardheight) * 100) / 100);
-    HTMLplacementheight.innerHTML = String(Math.round(stats.placementheight * 100) / 100);
-    HTMLplacementheightcalc.innerHTML = String(Math.round(-CONFIG.weight_placementheight *
-      (CONFIG.scaled_placementheight ? stats.scaledplacementheight : stats.placementheight) * 100) / 100);
-    HTMLavgheightdiff.innerHTML = String(Math.round(stats.avgheightdiff * 100) / 100);
-    HTMLavgheightdiffcalc.innerHTML = String(
-      Math.round(-CONFIG.weight_avgheightdiff * stats.avgheightdiff * 100) / 100);
+    HTMLlineclears.innerText = String(stats.lineClears);
+    HTMLlineclearscalc.innerText = String(Math.round(CONFIG.weight_lineclears * stats.lineClears * 100) / 100);
+    HTMLholes.innerText = String(Math.round((CONFIG.scaled_holes ? stats.scaledHoles : stats.totalHoles) * 100) / 100);
+    HTMLholescalc.innerText = String(Math.round(-CONFIG.weight_holes *
+      (CONFIG.scaled_holes ? stats.scaledHoles : stats.totalHoles) * 100) / 100);
+    HTMLboardheight.innerText = String(Math.round(stats.boardHeight * 100) / 100);
+    HTMLboardheightcalc.innerText = String(Math.round(-CONFIG.weight_boardheight *
+      (CONFIG.scaled_boardheight ? stats.scaledBoardHeight : stats.boardHeight) * 100) / 100);
+    HTMLplacementheight.innerText = String(Math.round(stats.placementHeight * 100) / 100);
+    HTMLplacementheightcalc.innerText = String(Math.round(-CONFIG.weight_placementheight *
+      (CONFIG.scaled_placementheight ? stats.scaledPlacementHeight : stats.placementHeight) * 100) / 100);
+    HTMLavgheightdiff.innerText = String(Math.round(stats.avgHeightDiff * 100) / 100);
+    HTMLavgheightdiffcalc.innerText = String(
+      Math.round(-CONFIG.weight_avgheightdiff * stats.avgHeightDiff * 100) / 100);
+    HTMLdeepestwell.innerText = String(stats.deepestWell);
+    HTMLdeepestwellcalc.innerText = String(-stats.deepestWell * CONFIG.weight_deepestwell);
+    HTMLflips.innerText = String(stats.rowFlips + stats.colFlips);
+    HTMLflipscalc.innerText = String(-stats.rowFlips * CONFIG.weight_rowflip - stats.colFlips * CONFIG.weight_colflip);
   }
 }

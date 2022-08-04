@@ -11,34 +11,39 @@ export const CONFIG = {
   aitarget_alpha: 100,
   hint_alpha: 17,
 
-  dropframes: 30,
+  dropFrames: 30,
   dropLockFrames: 30,
-  framerate: 30,
+  frameRate: 30,
+  autoShiftDelay: 10,
+  repeatDelay: 1,
 
-  aienabled: false,
-  aidelay: 1,
-  aiparallel: true,
-  showhint: false,
+  aiEnabled: false,
+  aiDelay: 1,
+  aiParallel: true,
+  showHint: false,
 
   weight_lineclears: 200,
   weight_holes: 300,
-  scale_unreachableholes: 1.5,
   scaled_holes: true,
   exp_holes: 0.66,
-  weight_boardheight: 1,
+  weight_boardheight: 8,
   scaled_boardheight: true,
   exp_boardheight: 2,
   weight_placementheight: 5,
   scaled_placementheight: true,
   exp_placementheight: 2,
   weight_avgheightdiff: 75,
-  aiturnimprovement: 100
+  aiturnimprovement: 100,
+  weight_rowflip: 20,
+  weight_colflip: 20,
+  weight_deepestwell: 100
 };
 
 export const MINSETTINGS = {
-  aidelay: -1,
-  framerate: 10,
-  dropframes: 0,
+  aiDelay: -1,
+  frameRate: 10,
+  dropFrames: 0,
+  dropLockFrames: 0,
   weight_lineclears: 0,
   weight_holes: 0,
   weight_boardheight: 0,
@@ -52,20 +57,21 @@ export const MINSETTINGS = {
 
 /* Initialize HTML config settings */
 
-if (CONFIG.aienabled) {
+if (CONFIG.aiEnabled) {
   document.getElementById("enable-ai-input")!.setAttribute("checked", "");
   document.getElementById("ai-delay-input")!.removeAttribute("disabled");
   document.getElementById("ai-parallel-input")!.removeAttribute("disabled");
 }
-if (CONFIG.showhint) {
+if (CONFIG.showHint) {
   document.getElementById("show-hint-input")!.setAttribute("checked", "");
 }
-if (CONFIG.aiparallel) {
+if (CONFIG.aiParallel) {
   (document.getElementById("ai-parallel-input")! as HTMLInputElement).setAttribute("checked", "");
 }
-(document.getElementById("ai-delay-input")! as HTMLInputElement).value = String(CONFIG.aidelay);
-(document.getElementById("frame-rate-input")! as HTMLInputElement).value = String(CONFIG.framerate);
-(document.getElementById("drop-frames-input")! as HTMLInputElement).value = String(CONFIG.dropframes);
+(document.getElementById("ai-delay-input")! as HTMLInputElement).value = String(CONFIG.aiDelay);
+(document.getElementById("frame-rate-input")! as HTMLInputElement).value = String(CONFIG.frameRate);
+(document.getElementById("drop-frames-input")! as HTMLInputElement).value = String(CONFIG.dropFrames);
+(document.getElementById("lock-frames-input")! as HTMLInputElement).value = String(CONFIG.dropLockFrames);
 (document.getElementById("weight-line-clears")! as HTMLInputElement).value = String(CONFIG.weight_lineclears);
 (document.getElementById("weight-holes")! as HTMLInputElement).value = String(CONFIG.weight_holes);
 (document.getElementById("weight-board-height")! as HTMLInputElement).value = String(CONFIG.weight_boardheight);

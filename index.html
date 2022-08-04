@@ -39,7 +39,6 @@
             </div>
             <div class="settings-col-right">
               <input id="ai-delay-input" class="control-input settings-number"
-                     disabled
                      min="-1" type="number"/>
             </div>
           </div>
@@ -49,7 +48,6 @@
             </div>
             <div class="settings-col-right">
               <input id="ai-parallel-input" class="control-input settings-switch"
-                     disabled
                      onfocus="this.blur()" type="checkbox"/>
             </div>
           </div>
@@ -70,6 +68,15 @@
             </div>
             <div class="settings-col-right">
               <input id="drop-frames-input" class="control-input settings-number"
+                     min="0" type="number"/>
+            </div>
+          </div>
+          <div id="lock-frames" class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="lock-frames-input">Lock Frames</label>
+            </div>
+            <div class="settings-col-right">
+              <input id="lock-frames-input" class="control-input settings-number"
                      min="0" type="number"/>
             </div>
           </div>
@@ -272,6 +279,32 @@
           </div>
           <div class="statistics-split-right">
             (<span id="stats-avg-height-diff-calc" class="statistics-number statistics-negative"></span>)
+          </div>
+        </div>
+      </div>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Deepest well</span>
+        </div>
+        <div class="statistics-col-split">
+          <div class="statistics-split-left">
+            <span id="stats-deepest-well" class="statistics-number"></span>
+          </div>
+          <div class="statistics-split-right">
+            (<span id="stats-deepest-well-calc" class="statistics-number statistics-negative"></span>)
+          </div>
+        </div>
+      </div>
+      <div class="statistics-row">
+        <div class="statistics-col-left">
+          <span>Row/col flips</span>
+        </div>
+        <div class="statistics-col-split">
+          <div class="statistics-split-left">
+            <span id="stats-flips" class="statistics-number"></span>
+          </div>
+          <div class="statistics-split-right">
+            (<span id="stats-flips-calc" class="statistics-number statistics-negative"></span>)
           </div>
         </div>
       </div>
