@@ -115,7 +115,7 @@
 #settings-content {
     position: relative;
     overflow: hidden;
-    height: 345px;
+    height: 450px;
 
     transition: height 0.25s ease-in-out;
     -webkit-transition: height 0.25s ease-in-out;

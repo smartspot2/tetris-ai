@@ -9,7 +9,7 @@
     "build-dev": "parcel build --no-optimize --public-url ./",
     "prebuild": "shx rm -rf dist",
     "build": "parcel build --public-url ./ --no-scope-hoist",
-    "push-gh-pages": "npm run build && push-dir --dir=dist --branch=gh-pages --cleanup --verbase"
+    "push-gh-pages": "npm run build && push-dir --dir=dist --branch=gh-pages --cleanup --verbose"
   },
   "devDependencies": {
     "@types/p5": "^1.4.2",

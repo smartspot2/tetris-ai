@@ -49,6 +49,9 @@ export const MINSETTINGS = {
   weight_boardheight: 0,
   weight_placementheight: 0,
   weight_avgheightdiff: 0,
+  weight_rowflip: 0,
+  weight_colflip: 0,
+  weight_deepestwell: 0,
   exp_holes: 0,
   exp_boardheight: 0,
   exp_placementheight: 0
@@ -77,6 +80,9 @@ if (CONFIG.aiParallel) {
 (document.getElementById("weight-board-height")! as HTMLInputElement).value = String(CONFIG.weight_boardheight);
 (document.getElementById("weight-placement-height")! as HTMLInputElement).value = String(CONFIG.weight_placementheight);
 (document.getElementById("weight-avg-height-diff")! as HTMLInputElement).value = String(CONFIG.weight_avgheightdiff);
+(document.getElementById("weight-row-flip")! as HTMLInputElement).value = String(CONFIG.weight_rowflip);
+(document.getElementById("weight-col-flip")! as HTMLInputElement).value = String(CONFIG.weight_colflip);
+(document.getElementById("weight-deepest-well")! as HTMLInputElement).value = String(CONFIG.weight_deepestwell);
 if (CONFIG.scaled_holes) {
   document.getElementById("scaled-holes")!.setAttribute("checked", "");
   document.getElementById("exp-holes")!.removeAttribute("disabled");

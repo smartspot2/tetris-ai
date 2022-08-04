@@ -171,6 +171,9 @@ const p5Instance = new p5(p => {
   document.getElementById("weight-board-height")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_boardheight"));
   document.getElementById("weight-placement-height")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_placementheight"));
   document.getElementById("weight-avg-height-diff")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_avgheightdiff"));
+  document.getElementById("weight-row-flip")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_rowflip"));
+  document.getElementById("weight-col-flip")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_colflip"));
+  document.getElementById("weight-deepest-well")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "weight_deepestwell"));
 
   document.getElementById("scaled-holes")?.addEventListener("click", () => toggleScaled("holes"));
   document.getElementById("exp-holes")?.addEventListener("change", el => changeSetting(el.target as HTMLInputElement, "exp_holes"));

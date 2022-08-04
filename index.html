@@ -12,12 +12,6 @@
 </head>
 <body>
 <main>
-  <!--
-    TODO:
-      - Add DAS for manual gameplay
-      - Add ability to t-spin & other advanced techniques
-        - add to possible end positions for AI? (probably hard to do, would need another way of determining end positions)
-  -->
   <div id="sketch"></div>
   <div id="settings-bb">
     <div id="settings">
@@ -137,6 +131,36 @@
             </div>
             <div class="settings-col-right">
               <input id="weight-avg-height-diff" class="control-input settings-number"
+                     min="0"
+                     type="number"/>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-row-flip">Row flips wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input id="weight-row-flip" class="control-input settings-number"
+                     min="0"
+                     type="number"/>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-col-flip">Col flips wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input id="weight-col-flip" class="control-input settings-number"
+                     min="0"
+                     type="number"/>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-col-left">
+              <label class="control-label" for="weight-deepest-well">Deepest well wt.</label>
+            </div>
+            <div class="settings-col-right">
+              <input id="weight-deepest-well" class="control-input settings-number"
                      min="0"
                      type="number"/>
             </div>
